@@ -291,34 +291,36 @@ tbody tr:hover td{background:var(--card2)!important;filter:none}
 .fix-item{
   background:var(--card);
   border:1px solid var(--border);
-  border-radius:12px;
-  margin-bottom:.6rem;
+  border-radius:10px;
+  margin-bottom:.4rem;
   overflow:hidden;
   transition:border-color .25s,box-shadow .25s;
   box-shadow:var(--card-shadow);
 }
 .fix-item:hover{border-color:rgba(201,168,76,.3);box-shadow:0 6px 24px rgba(0,0,0,.5)}
-.fix-header{display:flex;align-items:center;padding:.8rem 1rem;gap:.5rem}
+.fix-header{display:flex;align-items:center;padding:.55rem .7rem;gap:.4rem}
 .fix-team-side{flex:1;min-width:0}
 .fix-team-name{
   font-family:'Oswald',sans-serif;font-weight:600;
-  font-size:1rem;letter-spacing:1px;
+  font-size:.92rem;letter-spacing:.5px;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
   line-height:1.1;display:block;
 }
-.fix-team-coach{font-size:.6rem;color:var(--muted);margin-top:.15rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
+.fix-team-coach{font-size:.58rem;color:var(--muted);margin-top:.1rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
 .fix-home .fix-team-name{color:var(--text);text-align:left}
 .fix-home .fix-team-coach{text-align:left}
 .fix-away{text-align:right}
 .fix-away .fix-team-name{color:var(--text);text-align:right}
 .fix-away .fix-team-coach{text-align:right}
+.fix-center{flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:.18rem}
 .fix-vs-badge{
-  flex-shrink:0;width:36px;height:36px;border-radius:50%;
+  flex-shrink:0;width:30px;height:30px;border-radius:50%;
   background:var(--card2);border:1.5px solid var(--border2);
   display:flex;align-items:center;justify-content:center;
-  font-family:'Oswald',sans-serif;font-size:.6rem;font-weight:600;
+  font-family:'Oswald',sans-serif;font-size:.56rem;font-weight:600;
   color:var(--gold);letter-spacing:1px;
 }
+.fix-date-mini{font-family:'Oswald',sans-serif;font-size:.52rem;color:var(--muted);letter-spacing:.5px;white-space:nowrap}
 .fix-footer{
   display:flex;align-items:center;justify-content:space-between;
   padding:.35rem 1rem .5rem;
@@ -327,6 +329,11 @@ tbody tr:hover td{background:var(--card2)!important;filter:none}
 }
 .fix-date{font-family:'Oswald',sans-serif;font-size:.62rem;color:var(--muted);letter-spacing:1px}
 .fix-round-label{font-family:'Oswald',sans-serif;font-size:.6rem;color:var(--gold);font-weight:400;letter-spacing:1.5px;text-transform:uppercase}
+.fix-round-mini{
+  font-family:'Oswald',sans-serif;font-size:.55rem;color:var(--gold);
+  letter-spacing:1px;text-transform:uppercase;text-align:center;
+  padding:.28rem .6rem;border-top:1px solid var(--border);background:var(--card2);
+}
 
 /* ── PLAYOFF ITEMS ── */
 .po-item{
@@ -1955,7 +1962,7 @@ function resolveCoach(m,side){
   return getCoachById(id)||getCoach(resolveTeamName(m,side))||getCoach(side==='home'?m.homeName:m.awayName)||null;
 }
 
-function buildFixCard(homeName,awayName,footerLeft,footerRight,match){
+function buildFixCard(homeName,awayName,date,extraLabel,match){
   var homeCoach=getCoach(homeName);
   var awayCoach=getCoach(awayName);
   var tour=getTour();
@@ -1966,21 +1973,21 @@ function buildFixCard(homeName,awayName,footerLeft,footerRight,match){
   return '<div class="fix-item">'+
     '<div class="fix-header">'+
     '<div class="fix-team-side fix-home">'+
-    '<div style="display:flex;align-items:center;gap:.4rem;margin-bottom:.15rem">'+logoImg(homeName,26,homeReg)+
+    '<div style="display:flex;align-items:center;gap:.35rem">'+logoImg(homeName,22,homeReg)+
     '<div class="fix-team-name">'+homeName+'</div></div>'+
-    (homeCoach?'<div class="fix-team-coach">🧢 '+homeCoach+'</div>':'<div class="fix-team-coach" style="opacity:0">–</div>')+
+    (homeCoach?'<div class="fix-team-coach">🧢 '+homeCoach+'</div>':'')+
     '</div>'+
+    '<div class="fix-center">'+
     '<div class="fix-vs-badge">VS</div>'+
+    '<div class="fix-date-mini">'+date+'</div>'+
+    '</div>'+
     '<div class="fix-team-side fix-away">'+
-    '<div style="display:flex;align-items:center;justify-content:flex-end;gap:.4rem;margin-bottom:.15rem">'+
-    '<div class="fix-team-name">'+awayName+'</div>'+logoImg(awayName,26,awayReg)+'</div>'+
-    (awayCoach?'<div class="fix-team-coach">'+awayCoach+' 🧢</div>':'<div class="fix-team-coach" style="opacity:0">–</div>')+
+    '<div style="display:flex;align-items:center;justify-content:flex-end;gap:.35rem">'+
+    '<div class="fix-team-name">'+awayName+'</div>'+logoImg(awayName,22,awayReg)+'</div>'+
+    (awayCoach?'<div class="fix-team-coach">'+awayCoach+' 🧢</div>':'')+
     '</div>'+
     '</div>'+
-    '<div class="fix-footer">'+
-    '<span class="fix-date">'+footerLeft+'</span>'+
-    '<span class="fix-round-label">'+footerRight+'</span>'+
-    '</div>'+
+    (extraLabel?'<div class="fix-round-mini">'+extraLabel+'</div>':'')+
     '</div>';
 }
 
@@ -2022,7 +2029,7 @@ function renderFixtures(){
         '<div class="round-divider-line"></div>'+
         '</button>'+
         '<div id="'+uid+'" class="round-body'+(isFirst?' expanded':' collapsed')+'" style="max-height:'+(isFirst?'none':'0')+'">';
-      rm.forEach(function(m){h+=buildFixCard(resolveTeamName(m,'home'),resolveTeamName(m,'away'),m.date||'Date TBC',r,m);});
+      rm.forEach(function(m){h+=buildFixCard(resolveTeamName(m,'home'),resolveTeamName(m,'away'),m.date||'Date TBC',null,m);});
       h+='</div></div>';
     });
   }
