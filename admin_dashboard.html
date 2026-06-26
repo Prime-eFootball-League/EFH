@@ -402,6 +402,13 @@ td.pts{font-family:'Anton',sans-serif;font-size:1.1rem;color:var(--gold);text-sh
         </div>
       </div>
 
+      <div class="rule-section" id="groupsWildcardInfo" style="display:none">
+        <div class="rule-title">🎯 Best 3rd-Place Promotion</div>
+        <div class="info info-green" id="groupsWildcardInfoText">
+          No extra matches needed. The top teams per group plus your best 3rd-place wildcards advance straight to the knockout bracket by ranking (points → goal difference → goals for) — same as Euro 2020/2024.
+        </div>
+      </div>
+
       <div class="rule-section">
         <div class="rule-title">Boundary Tiebreak Playoff</div>
         <div class="info" style="margin-bottom:.7rem">Auto-triggered if teams at qualify/eliminate line are tied on both points <strong>and</strong> goal difference after final matchday. System will alert admin.</div>
@@ -1026,7 +1033,33 @@ function wizNext(from){
   wizStep++;
   document.getElementById('wiz'+wizStep).classList.add('active');
   updWizProgress();
+  if(wizStep===3){updatePlayoffStepForFormat();}
   if(wizStep===4){buildWizGroupSel();buildWizRegistryDropdown();}
+}
+
+// Step 3 shows a different rule set depending on format: League/Swiss keep the
+// legacy Rank-Range / 3rd-Place playoff selector. Groups format instead shows
+// a read-only confirmation of the best-3rd-place wildcard rule already set in
+// Step 2 (groupThirdAdv) — that promotion is by ranking only, never a playoff,
+// so the old "3rd Place play off" selector doesn't apply and was confusing.
+function updatePlayoffStepForFormat(){
+  const isGroups=wizData.format==='groups';
+  const legacy=document.getElementById('setPlayoffSection');
+  const info=document.getElementById('groupsWildcardInfo');
+  if(legacy) legacy.style.display=isGroups?'none':'block';
+  if(info) info.style.display=isGroups?'block':'none';
+  if(isGroups){
+    const t=wizData;
+    const autoQ=(t.numGroups||0)*(t.groupAdv||0);
+    const wc=t.groupThirdAdv||0;
+    const bracketSize=autoQ+wc;
+    const txt=document.getElementById('groupsWildcardInfoText');
+    if(txt){
+      txt.innerHTML = wc>0
+        ? `Top <strong>${t.groupAdv}</strong> per group (${autoQ} teams) + best <strong>${wc}</strong> 3rd-place team(s) ranked by points → GD → GF = <strong>${bracketSize}</strong> teams advance directly. No 3rd-place playoff matches are played.`
+        : `Top <strong>${t.groupAdv}</strong> per group (${autoQ} teams) advance directly. No 3rd-place wildcards are configured for this tournament.`;
+    }
+  }
 }
 
 function updWizProgress(){
@@ -1197,7 +1230,7 @@ function buildWizSummary(){
         <div><strong style="color:var(--gold)">Name:</strong> ${t.name}${t.season?' – '+t.season:''}</div>
         <div><strong style="color:var(--gold)">Format:</strong> ${t.format==='league'?'League (All vs All)':t.format==='swiss'?'🔄 Swiss / UCL-Style':'Group Stage'}</div>
         ${t.format==='league'?`<div><strong style="color:var(--gold)">Legs:</strong> ${t.legs===2?'Home & Away':'1 Leg'}</div><div><strong style="color:var(--gold)">Advancing:</strong> Top ${t.leagueAdv} teams</div>`:t.format==='swiss'?`<div><strong style="color:var(--gold)">Match Days:</strong> ${t.swissRounds}</div><div><strong style="color:var(--gold)">Auto-Qualify:</strong> Top ${t.swissAutoQual} teams</div><div><strong style="color:var(--gold)">Playoff Round:</strong> Next ${t.swissPlayoffTeams} teams (${t.swissPlayoffAdv} advance)</div><div><strong style="color:var(--gold)">Bracket Size:</strong> ${t.swissAutoQual+t.swissPlayoffAdv} teams</div>`:`<div><strong style="color:var(--gold)">Groups:</strong> ${t.numGroups} groups × ${t.tPerGroup} teams</div><div><strong style="color:var(--gold)">Advancing:</strong> Top ${t.groupAdv} per group${t.groupThirdAdv?' + best '+t.groupThirdAdv+' 3rd-place':''}</div><div><strong style="color:var(--gold)">Bracket Size:</strong> ${(t.numGroups*t.groupAdv)+(t.groupThirdAdv||0)} teams</div>`}
-        <div><strong style="color:var(--gold)">Set Playoff:</strong> ${t.playoffOn?(t.playoffType==='range'?`Ranks ${t.playoffFrom}–${t.playoffTo}`:'Group 3rd Place'):'Off'}</div>
+        ${t.format==='groups'?'':`<div><strong style="color:var(--gold)">Set Playoff:</strong> ${t.playoffOn?(t.playoffType==='range'?`Ranks ${t.playoffFrom}–${t.playoffTo}`:'Group 3rd Place'):'Off'}</div>`}
         <div><strong style="color:var(--gold)">Teams:</strong> ${t.teams.length}</div>
       </div>
     </div>`;
