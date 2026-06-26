@@ -1573,13 +1573,54 @@ function autoGenFixtures(){
   if(tour.format==='groups'){
     const groups={};
     teams.forEach(t=>{if(!groups[t.group])groups[t.group]=[];groups[t.group].push(t);});
-    Object.keys(groups).forEach(g=>{
-      const gt=groups[g];
-      for(let i=0;i<gt.length;i++)for(let j=i+1;j<gt.length;j++){
-        newM.push(mkFix(gt[i],gt[j],`Group ${g}`));
-        if(legs===2)newM.push(mkFix(gt[j],gt[i],`Group ${g} (R)`));
+    const groupKeys=Object.keys(groups).sort();
+    // Build a per-group round-robin schedule (circle method — same approach as the
+    // League format) so matches land in Round 1, Round 2, Round 3... instead of one
+    // flat unordered list. Teams only ever appear in their own group's schedule, so
+    // a team can never be paired with a team from a different group.
+    const groupSchedules={}; // g -> [ [ [home,away], ... ] for round 1, round 2, ... ]
+    let maxRounds=0;
+    groupKeys.forEach(g=>{
+      const gt=[...groups[g]];
+      if(gt.length<2){groupSchedules[g]=[];return;}
+      const list=[...gt];
+      if(list.length%2!==0)list.push(null); // bye if this group has an odd team count
+      const total=list.length;
+      const rounds=total-1;
+      const fixed=list[0];
+      const rotating=list.slice(1);
+      const sched=[];
+      for(let r=0;r<rounds;r++){
+        const roundTeams=[fixed,...rotating];
+        const half=total/2;
+        const roundPairs=[];
+        for(let k=0;k<half;k++){
+          const home=roundTeams[k];
+          const away=roundTeams[total-1-k];
+          if(home&&away)roundPairs.push([home,away]);
+        }
+        sched.push(roundPairs);
+        rotating.unshift(rotating.pop());
       }
+      groupSchedules[g]=sched;
+      if(rounds>maxRounds)maxRounds=rounds;
     });
+    // First leg — Round 1..maxRounds, every group's Round-N matches grouped together
+    for(let r=0;r<maxRounds;r++){
+      groupKeys.forEach(g=>{
+        const sched=groupSchedules[g];
+        if(sched&&sched[r]) sched[r].forEach(p=>newM.push(mkFix(p[0],p[1],`Round ${r+1} · Group ${g}`)));
+      });
+    }
+    // Second leg (reverse fixtures), only if Home & Away is set for the group stage
+    if(legs===2){
+      for(let r=0;r<maxRounds;r++){
+        groupKeys.forEach(g=>{
+          const sched=groupSchedules[g];
+          if(sched&&sched[r]) sched[r].forEach(p=>newM.push(mkFix(p[1],p[0],`Round ${maxRounds+r+1} · Group ${g}`)));
+        });
+      }
+    }
   } else if(tour.format==='swiss'){
     // Swiss system: each team plays exactly swissRounds match days
     // Round 1: random. Subsequent rounds: sort by points and pair adjacent teams (Swiss-style)
