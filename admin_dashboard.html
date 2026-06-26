@@ -1529,7 +1529,7 @@ function renderTeams(){
     const regT=getRegTeam(t);
     const logoSrc=regT&&regT.logoFilename?GITHUB_LOGOS_BASE+regT.logoFilename:(regT&&regT.logoUrl?regT.logoUrl:null);
     const avatarHtml=logoSrc
-      ?`<img src="${logoSrc}" style="width:28px;height:28px;border-radius:50%;object-fit:contain;background:var(--border);flex-shrink:0" onerror="this.outerHTML='<span style=\\'width:28px;height:28px;border-radius:50%;background:var(--border);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:.78rem;color:var(--gold);flex-shrink:0\\'>'+'${t.name[0]}'+'</span>'">`
+      ?`<img src="${logoSrc}" style="width:28px;height:28px;border-radius:50%;object-fit:contain;background:var(--border);flex-shrink:0" onerror="logoRetryInitial(this,'${t.name[0]}')">`
       :`<span style="width:28px;height:28px;border-radius:50%;background:var(--border);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:.78rem;color:var(--gold);flex-shrink:0">${t.name[0]}</span>`;
     return `<div style="display:flex;align-items:center;gap:.7rem;padding:.6rem 0;border-bottom:1px solid var(--border)">
       ${avatarHtml}
@@ -2234,7 +2234,7 @@ function renderTable(){
           const regT=getRegTeam(t);
           const logoSrc=regT&&regT.logoFilename?GITHUB_LOGOS_BASE+regT.logoFilename:(regT&&regT.logoUrl?regT.logoUrl:null);
           const logoHtml=logoSrc
-            ?`<img src="${logoSrc}" style="width:18px;height:18px;object-fit:contain;flex-shrink:0;vertical-align:middle;margin-right:.3rem" onerror="this.style.display='none'">`
+            ?`<img src="${logoSrc}" style="width:18px;height:18px;object-fit:contain;flex-shrink:0;vertical-align:middle;margin-right:.3rem" onerror="logoRetry(this)">`
             :`<span style="display:inline-block;width:18px;height:18px;text-align:center;font-size:.65rem;vertical-align:middle;margin-right:.3rem">⚽</span>`;
           const showSep=i===gThird&&i>0;
           h+=`<tr class="${zone}"${showSep?' style="border-top:2px dashed rgba(255,59,92,.3)"':''}>
@@ -2316,7 +2316,7 @@ function buildSwissTable(tour,teams,autoQ,poTeams,poAdv){
     const regT=getRegTeam(t);
     const logoSrc=regT&&regT.logoFilename?GITHUB_LOGOS_BASE+regT.logoFilename:(regT&&regT.logoUrl?regT.logoUrl:null);
     return logoSrc
-      ?`<img src="${logoSrc}" style="width:20px;height:20px;object-fit:contain;flex-shrink:0;vertical-align:middle;margin-right:.35rem" onerror="this.style.display='none'">`
+      ?`<img src="${logoSrc}" style="width:20px;height:20px;object-fit:contain;flex-shrink:0;vertical-align:middle;margin-right:.35rem" onerror="logoRetry(this)">`
       :`<span style="display:inline-block;width:20px;height:20px;text-align:center;font-size:.7rem;vertical-align:middle;margin-right:.35rem">⚽</span>`;
   }
 
@@ -2429,7 +2429,7 @@ function buildUCLTable(title,teams,advCount,playoffCount,tour,group){
     const regT=getRegTeam(t);
     const logoSrc=regT&&regT.logoFilename?GITHUB_LOGOS_BASE+regT.logoFilename:(regT&&regT.logoUrl?regT.logoUrl:null);
     const logoHtml=logoSrc
-      ?`<img src="${logoSrc}" style="width:20px;height:20px;object-fit:contain;flex-shrink:0;vertical-align:middle;margin-right:.35rem" onerror="this.style.display='none'">`
+      ?`<img src="${logoSrc}" style="width:20px;height:20px;object-fit:contain;flex-shrink:0;vertical-align:middle;margin-right:.35rem" onerror="logoRetry(this)">`
       :`<span style="display:inline-block;width:20px;height:20px;text-align:center;font-size:.7rem;vertical-align:middle;margin-right:.35rem">⚽</span>`;
     h+=`<tr class="${zone}">
       <td><strong>${pos}</strong></td>
@@ -3542,7 +3542,41 @@ function cancelRegistryForm(){
   },300);
 }
 
-const GITHUB_LOGOS_BASE = 'https://prime-efootball-league.github.io/Pfl-logo/';
+// jsDelivr serves repo files directly with no build step, so it's the primary
+// source — GitHub Pages needs a full rebuild+CDN propagation after every push,
+// which is what causes logos to intermittently 404 right after upload and then
+// "fix themselves" once the deploy finishes. Pages is kept as a fallback only.
+const GITHUB_LOGOS_BASE = 'https://cdn.jsdelivr.net/gh/Prime-eFootball-League/Pfl-logo@main/';
+const GITHUB_LOGOS_FALLBACK = 'https://prime-efootball-league.github.io/Pfl-logo/';
+function logoRetry(img){
+  if(img.dataset.retried){
+    const sib=img.nextElementSibling;
+    if(sib&&/placeholder/.test(sib.className)){
+      img.style.display='none';
+      sib.style.display='flex';
+    } else {
+      const w=img.style.width||(img.width?img.width+'px':'24px');
+      const h=img.style.height||w;
+      const fs=parseInt(w)*0.45;
+      img.outerHTML=`<span style="display:inline-flex;align-items:center;justify-content:center;width:${w};height:${h};border-radius:50%;background:rgba(255,255,255,.08);font-size:${fs}px;flex-shrink:0">⚽</span>`;
+    }
+    return;
+  }
+  img.dataset.retried='1';
+  const filename=img.src.split('/').pop();
+  img.src=GITHUB_LOGOS_FALLBACK+filename;
+}
+// Same two-stage retry, but for avatars whose fallback is the team's initial letter
+// rather than the generic ⚽ icon.
+function logoRetryInitial(img,letter){
+  if(img.dataset.retried){
+    img.outerHTML=`<span style="width:28px;height:28px;border-radius:50%;background:var(--border);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:.78rem;color:var(--gold);flex-shrink:0">${letter}</span>`;
+    return;
+  }
+  img.dataset.retried='1';
+  const filename=img.src.split('/').pop();
+  img.src=GITHUB_LOGOS_FALLBACK+filename;
+}
 
 var CLUB_DIRECTORY=[
   {s:"milan",n:"AC Milan",l:"Serie A"},
