@@ -238,9 +238,11 @@ tbody tr:hover td{background:var(--card2)!important;filter:none}
 .z-q td{background:rgba(0,232,122,.04)!important}
 .z-p td{background:rgba(77,159,255,.04)!important}
 .z-e td{background:rgba(255,59,92,.03)!important}
+.z-w td{background:rgba(255,170,0,.04)!important}
 .z-q td:first-child{border-left:3px solid var(--green)}
 .z-p td:first-child{border-left:3px solid #4d9fff}
 .z-e td:first-child{border-left:3px solid var(--red)}
+.z-w td:first-child{border-left:3px solid #ffaa00}
 .z-n{border-left:3px solid transparent}
 .z-legend{
   display:flex;gap:.8rem;flex-wrap:wrap;
@@ -1643,10 +1645,59 @@ function renderTable(){
   else{
     var groups={};
     tour.teams.forEach(function(t){if(!groups[t.group])groups[t.group]=[];groups[t.group].push(t);});
-    Object.keys(groups).sort().forEach(function(g){
+    var gAdv=tour.groupAdv||2;
+    var gThird=tour.groupThirdAdv||0;
+    var groupKeys=Object.keys(groups).sort();
+    groupKeys.forEach(function(g){
       html+='<div class="grp-title">Group '+g+'</div>';
       html+=buildTable(tour,sortTeams(groups[g]));
     });
+
+    // Best 3rd-Place wildcard race table
+    if(gThird>0&&groupKeys.length>0){
+      var thirdPool=groupKeys.map(function(g){
+        var sg=sortTeams(groups[g]);
+        return sg[gAdv]?Object.assign({},sg[gAdv],{_fromGroup:g}):null;
+      }).filter(Boolean);
+      if(thirdPool.length>0){
+        var rankedThirds=sortTeams(thirdPool);
+        html+='<div style="margin-top:.5rem">';
+        html+='<div class="grp-title" style="color:#ffaa00;border-color:#ffaa00">🎯 WILDCARD RACE — BEST 3RD-PLACE</div>';
+        html+='<div style="font-size:.75rem;color:var(--muted);margin:.4rem 0 .7rem;padding:0 .2rem">Top <strong style="color:#ffaa00">'+gThird+'</strong> of '+thirdPool.length+' third-place finishers advance. Ranked by Points → Goal Difference → Goals Scored.</div>';
+        html+='<div class="tbl-wrap"><table><thead><tr>'+
+          '<th>Pos</th><th>Team</th><th class="num">Grp</th>'+
+          '<th class="num">P</th><th class="num">W</th><th class="num">D</th><th class="num">L</th>'+
+          '<th class="num">GF</th><th class="num">GA</th><th class="num">GD</th><th class="num">Pts</th>'+
+          '</tr></thead><tbody>';
+        rankedThirds.forEach(function(t,i){
+          var qualified=i<gThird;
+          var gd=t.goalsFor-t.goalsAgainst;
+          var zone=qualified?'z-w':'z-e';
+          var topBorder=(i===gThird&&i>0)?'border-top:2px dashed rgba(255,59,92,.25)':'';
+          var regT=resolveRegTeam(t);
+          html+='<tr class="'+zone+'" style="'+topBorder+'">'+
+            '<td><span class="rank-num">'+(i+1)+(qualified?' ✓':' ✗')+'</span></td>'+
+            '<td><div style="display:flex;align-items:center;gap:.5rem">'+logoImg(t.name,20,regT)+
+            '<strong style="font-family:\'DM Sans\',sans-serif;font-weight:700">'+t.name+'</strong></div></td>'+
+            '<td class="num" style="color:var(--muted);font-size:.72rem">'+t._fromGroup+'</td>'+
+            '<td class="num">'+t.played+'</td>'+
+            '<td class="num" style="color:var(--green)">'+t.won+'</td>'+
+            '<td class="num">'+t.drawn+'</td>'+
+            '<td class="num" style="color:var(--red)">'+t.lost+'</td>'+
+            '<td class="num">'+t.goalsFor+'</td>'+
+            '<td class="num">'+t.goalsAgainst+'</td>'+
+            '<td class="num" style="color:'+(gd>0?'var(--green)':gd<0?'var(--red)':'var(--text)')+'">'+
+            (gd>=0?'+':'')+gd+'</td>'+
+            '<td class="pts-cell">'+t.points+'</td>'+
+            '</tr>';
+        });
+        html+='</tbody></table></div>';
+        html+='<div class="z-legend">'+
+          '<span class="zl"><span class="zl-dot" style="background:#ffaa00"></span><span style="color:#ffaa00">Wildcard Qualified (top '+gThird+')</span></span>'+
+          '<span class="zl"><span class="zl-dot" style="background:var(--red)"></span><span style="color:var(--red)">Eliminated</span></span>'+
+          '</div></div>';
+      }
+    }
   }
   html+='</div>';
   el.innerHTML=html;
@@ -1660,6 +1711,12 @@ function buildTable(tour,teams){
     var fr=tour.bracketRounds.find(function(r){return r.matches&&r.matches[0]&&!r.matches[0].is3rd;});
     adv=fr?fr.matches.length*2:(tour.bracketSize||tour.leagueAdv);
   } else {adv=tour.leagueAdv;}
+
+  // Wildcard zone for groups format
+  var isGroupsFmt=(tour.format==='groups');
+  var gThird=isGroupsFmt?(tour.groupThirdAdv||0):0;
+  var wildcardPos=(gThird>0)?(adv+1):0; // 1-indexed position = wildcard candidate
+
   var h='<div class="tbl-wrap"><table><thead><tr>'+
     '<th>Pos</th><th>Team</th>'+
     '<th class="num">P</th><th class="num">W</th><th class="num">D</th><th class="num">L</th>'+
@@ -1667,13 +1724,15 @@ function buildTable(tour,teams){
     '</tr></thead><tbody>';
   teams.forEach(function(t,i){
     var pos=i+1,gd=t.goalsFor-t.goalsAgainst;
-    var zone=pos<=adv?'z-q':'z-e';
+    var zone;
+    if(pos<=adv){ zone='z-q'; }
+    else if(wildcardPos&&pos===wildcardPos){ zone='z-w'; }
+    else{ zone='z-e'; }
     var topBorder=i===adv?'border-top:1.5px dashed rgba(255,255,255,.1)':'';
     var regT=resolveRegTeam(t);
-    var rankClass='';
     var medal=i===0?' 🥇':i===1?' 🥈':i===2?' 🥉':'';
     var rankBadge='<span class="rank-num">'+pos+medal+'</span>';
-    h+='<tr class="'+zone+' '+rankClass+'" style="'+topBorder+'">'+
+    h+='<tr class="'+zone+' " style="'+topBorder+'">'+
       '<td>'+rankBadge+'</td>'+
       '<td><div style="display:flex;align-items:center;gap:.5rem">'+logoImg(t.name,22,regT)+'<strong style="font-family:\'DM Sans\',sans-serif;font-weight:700">'+t.name+'</strong></div></td>'+
       '<td class="num">'+t.played+'</td>'+
@@ -1693,6 +1752,7 @@ function buildTable(tour,teams){
   var qualLabel=hasBracket?'Qualified – Playoffs (Top '+adv+')':'Qualified (Top '+adv+')';
   h+='<div class="z-legend">'+
     '<span class="zl"><span class="zl-dot" style="background:var(--green)"></span><span style="color:var(--green)">'+qualLabel+'</span></span>'+
+    (wildcardPos?'<span class="zl"><span class="zl-dot" style="background:#ffaa00"></span><span style="color:#ffaa00">Wildcard Candidate</span></span>':'')+
     '<span class="zl"><span class="zl-dot" style="background:var(--red)"></span><span style="color:var(--red)">Eliminated</span></span>'+
     '</div>';
   return h;

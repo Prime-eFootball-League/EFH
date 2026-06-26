@@ -158,6 +158,8 @@ td.pts{font-family:'Anton',sans-serif;font-size:1.1rem;color:var(--gold);text-sh
 .zl-q{background:rgba(6,255,165,.15);color:var(--green)}
 .zl-p{background:rgba(77,159,255,.15);color:var(--blue)}
 .zl-e{background:rgba(255,59,92,.12);color:var(--red)}
+.zone-w{background:rgba(255,170,0,.06);border-left:3px solid #ffaa00}
+.zl-w{background:rgba(255,170,0,.15);color:#ffaa00}
 
 /* ─── PLAYOFF ALERT ─── */
 .playoff-alert{background:rgba(77,159,255,.1);border:1.5px solid var(--blue);border-radius:10px;padding:1.2rem;margin-bottom:1rem}
@@ -338,11 +340,14 @@ td.pts{font-family:'Anton',sans-serif;font-size:1.1rem;color:var(--gold);text-sh
       <div id="groupOpts" style="display:none">
         <div class="info info-blue">Teams split into groups. Top finishers advance.</div>
         <div class="row2">
-          <div><label class="lbl">No. of Groups</label><input type="number" id="numGroups" min="1" value="4"></div>
-          <div><label class="lbl">Teams per Group</label><input type="number" id="tPerGroup" min="2" value="4"></div>
+          <div><label class="lbl">No. of Groups</label><input type="number" id="numGroups" min="1" value="4" oninput="updateGroupMathCheck()"></div>
+          <div><label class="lbl">Teams per Group</label><input type="number" id="tPerGroup" min="2" value="4" oninput="updateGroupMathCheck()"></div>
         </div>
         <label class="lbl">Teams advancing per group</label>
-        <input type="number" id="groupAdv" min="1" value="2">
+        <input type="number" id="groupAdv" min="1" value="2" oninput="updateGroupMathCheck()">
+        <label class="lbl">Best 3rd-place teams advancing (optional)</label>
+        <input type="number" id="groupThirdAdv" min="0" value="0" oninput="updateGroupMathCheck()" placeholder="e.g. 4 — Euro 2024 style wildcard">
+        <div class="info" id="groupMathCheck" style="margin-top:.4rem"></div>
         <label class="lbl">Match Legs</label>
         <div class="seg">
           <button class="seg-btn on" id="gleg1" onclick="selGLeg(1)">1 Leg</button>
@@ -422,7 +427,8 @@ td.pts{font-family:'Anton',sans-serif;font-size:1.1rem;color:var(--gold);text-sh
         <select id="wizRegistrySelect" style="width:100%;padding:.6rem;background:var(--card2);border:1px solid var(--border);color:var(--text);border-radius:6px;font-family:'DM Sans',sans-serif;font-size:.95rem;margin-bottom:.6rem">
           <option value="">-- Select a registered team --</option>
         </select>
-        <button class="btn-full btn-outline" onclick="wizAddFromRegistry()" style="margin-bottom:.8rem">📋 ADD FROM REGISTRY</button>
+        <button class="btn-full btn-outline" onclick="wizAddFromRegistry()" style="margin-bottom:.4rem">📋 ADD FROM REGISTRY</button>
+        <button class="btn-full btn-outline" onclick="wizImportAllRegistry()" style="margin-bottom:.8rem;border-style:dashed;font-size:.82rem;color:var(--muted)">📥 IMPORT ALL REGISTRY TEAMS (then remove extras)</button>
         <div style="text-align:center;color:var(--muted);font-size:.8rem;margin:.3rem 0 .8rem">— or add new —</div>
         <label class="lbl">Team Name</label>
         <input type="text" id="wizTeamName" placeholder="e.g. FC Elite United">
@@ -433,6 +439,9 @@ td.pts{font-family:'Anton',sans-serif;font-size:1.1rem;color:var(--gold);text-sh
           <select id="wizGroup"></select>
         </div>
         <button class="btn-full btn-outline" onclick="wizAddTeam()">+ ADD TEAM</button>
+      </div>
+      <div id="wizAutoGroupRow" style="display:none;margin-bottom:.6rem">
+        <button class="btn-full btn-outline" onclick="wizAutoAssignGroups()" style="background:rgba(201,168,76,.08);border-color:rgba(201,168,76,.4);color:var(--gold);font-weight:700">🎲 AUTO-ASSIGN GROUPS RANDOMLY</button>
       </div>
       <div id="wizTeamList"></div>
       <div style="height:.5rem"></div>
@@ -595,6 +604,11 @@ td.pts{font-family:'Anton',sans-serif;font-size:1.1rem;color:var(--gold);text-sh
       <div id="dupTeamWarning"></div>
       <button class="btn-full btn-outline" onclick="openMerge()">OPEN MERGE TOOL</button>
     </div>
+    <div class="card" id="autoGroupCard" style="display:none">
+      <div class="card-title">🎲 Auto-Assign Groups</div>
+      <div class="info" style="margin-bottom:.7rem">Randomly shuffles and redistributes all teams evenly across the groups. Run <strong>Generate Fixtures</strong> afterwards to rebuild group-stage matchups.</div>
+      <button class="btn-full btn-outline" onclick="doAutoAssignGroups()" style="background:rgba(201,168,76,.08);border-color:rgba(201,168,76,.4);color:var(--gold);font-weight:700">🎲 RANDOMLY ASSIGN GROUPS</button>
+    </div>
     <div class="card">
       <div class="card-title">👥 All Teams</div>
       <div id="teamsList"><div class="empty">No teams</div></div>
@@ -692,6 +706,7 @@ td.pts{font-family:'Anton',sans-serif;font-size:1.1rem;color:var(--gold);text-sh
       <div class="card" style="padding:.8rem;margin-top:.6rem" id="liveAnimCard">
         <div class="card-title" style="margin-bottom:.5rem">🎬 Live Show Animations</div>
         <div class="info" id="liveAnimInfo" style="margin-bottom:.7rem">Available once the Final has a winner. Tap a button to play it full-screen right here (great for screen recording) — it also updates the public page.</div>
+        <button class="btn-full btn-gold" id="groupRevealAnimBtn" style="margin-bottom:.55rem;display:none" onclick="triggerGroupRevealAnim()">🏟️ PLAY GROUP STAGE DRAW</button>
         <button class="btn-full btn-gold" id="winnerAnimBtn" style="margin-bottom:.55rem" onclick="triggerWinnerAnim()" disabled>🎬 PLAY WINNER REVEAL</button>
         <button class="btn-full btn-gold" id="journeyAnimBtn" onclick="triggerJourneyAnim()" disabled>🏟️ PLAY TOURNAMENT JOURNEY (R16 → FINAL)</button>
       </div>
@@ -892,7 +907,7 @@ window._fbReady = true;
 let db = {tournaments:[]};
 let activeTid = null;
 let smFid = null, smH = 0, smA = 0;
-let wizData = {name:'',season:'',format:'league',legs:1,leagueAdv:4,numGroups:4,tPerGroup:4,groupAdv:2,groupLegs:1,playoffOn:true,playoffType:'range',playoffFrom:6,playoffTo:9,playoffLegs:1,tieLegs:1,teams:[],swissRounds:4,swissAutoQual:10,swissPlayoffTeams:12,swissPlayoffAdv:6,swissLegs:1};
+let wizData = {name:'',season:'',format:'league',legs:1,leagueAdv:4,numGroups:4,tPerGroup:4,groupAdv:2,groupThirdAdv:0,groupLegs:1,playoffOn:true,playoffType:'range',playoffFrom:6,playoffTo:9,playoffLegs:1,tieLegs:1,teams:[],swissRounds:4,swissAutoQual:10,swissPlayoffTeams:12,swissPlayoffAdv:6,swissLegs:1};
 let wizStep = 1;
 let poFmt = 1;
 
@@ -960,7 +975,7 @@ function renderList(){
 // WIZARD
 // ═══════════════════════════════════════════
 function startWizard(){
-  wizData={name:'',season:'',format:'league',legs:1,leagueAdv:4,numGroups:4,tPerGroup:4,groupAdv:2,groupLegs:1,playoffOn:true,playoffType:'range',playoffFrom:6,playoffTo:9,playoffLegs:1,tieLegs:1,teams:[],swissRounds:4,swissAutoQual:10,swissPlayoffTeams:12,swissPlayoffAdv:6,swissLegs:1};
+  wizData={name:'',season:'',format:'league',legs:1,leagueAdv:4,numGroups:4,tPerGroup:4,groupAdv:2,groupThirdAdv:0,groupLegs:1,playoffOn:true,playoffType:'range',playoffFrom:6,playoffTo:9,playoffLegs:1,tieLegs:1,teams:[],swissRounds:4,swissAutoQual:10,swissPlayoffTeams:12,swissPlayoffAdv:6,swissLegs:1};
   wizStep=1;
   document.querySelectorAll('.step').forEach(s=>s.classList.remove('active'));
   document.getElementById('wiz1').classList.add('active');
@@ -991,7 +1006,7 @@ function wizNext(from){
   if(from===2){
     if(!wizData.format){toast('Select a format',true);return;}
     if(wizData.format==='league'){wizData.leagueAdv=parseInt(document.getElementById('leagueAdv').value)||4;}
-    else if(wizData.format==='groups'){wizData.numGroups=parseInt(document.getElementById('numGroups').value)||4;wizData.tPerGroup=parseInt(document.getElementById('tPerGroup').value)||4;wizData.groupAdv=parseInt(document.getElementById('groupAdv').value)||2;}
+    else if(wizData.format==='groups'){wizData.numGroups=parseInt(document.getElementById('numGroups').value)||4;wizData.tPerGroup=parseInt(document.getElementById('tPerGroup').value)||4;wizData.groupAdv=parseInt(document.getElementById('groupAdv').value)||2;wizData.groupThirdAdv=parseInt(document.getElementById('groupThirdAdv').value)||0;}
     else if(wizData.format==='swiss'){
       wizData.swissRounds=parseInt(document.getElementById('swissRounds').value)||4;
       wizData.swissAutoQual=parseInt(document.getElementById('swissAutoQual').value)||10;
@@ -1027,6 +1042,32 @@ function selFmt(f){
   document.getElementById('leagueOpts').style.display=f==='league'?'block':'none';
   document.getElementById('groupOpts').style.display=f==='groups'?'block':'none';
   var swOpts=document.getElementById('swissOpts');if(swOpts)swOpts.style.display=f==='swiss'?'block':'none';
+  if(f==='groups') updateGroupMathCheck();
+}
+// Live validation for Groups format: total teams, auto-qualifiers, best-3rd wildcards,
+// and whether the resulting bracket size is buildable (2/4/8/16).
+function updateGroupMathCheck(){
+  var box=document.getElementById('groupMathCheck');
+  if(!box) return;
+  var numGroups=parseInt(document.getElementById('numGroups').value)||0;
+  var tPerGroup=parseInt(document.getElementById('tPerGroup').value)||0;
+  var groupAdv=parseInt(document.getElementById('groupAdv').value)||0;
+  var thirdAdv=parseInt(document.getElementById('groupThirdAdv').value)||0;
+  var totalTeams=numGroups*tPerGroup;
+  var autoQ=numGroups*groupAdv;
+  var bracketSize=autoQ+thirdAdv;
+  var isPow2=bracketSize>0 && (bracketSize & (bracketSize-1))===0;
+  var maxThirdAvailable=numGroups; // at most 1 third-place team per group can be a wildcard
+  var lines=[];
+  lines.push('🧮 '+numGroups+' groups × '+tPerGroup+' teams = <strong>'+totalTeams+' teams needed</strong>');
+  lines.push('Auto-qualify: '+numGroups+' groups × top '+groupAdv+' = <strong>'+autoQ+'</strong>');
+  if(thirdAdv>0) lines.push('Best 3rd-place wildcards: <strong>'+thirdAdv+'</strong> (out of '+maxThirdAvailable+' possible 3rd-place teams)');
+  lines.push('Round of '+(isPow2&&bracketSize>0?bracketSize:'?')+' bracket size: <strong>'+bracketSize+'</strong>');
+  var warn='';
+  if(thirdAdv>maxThirdAvailable) warn='⚠️ You set '+thirdAdv+' wildcard slots but only '+maxThirdAvailable+' groups exist (max 1 third-place team per group can qualify this way).';
+  else if(groupAdv>=tPerGroup) warn='⚠️ Teams advancing per group ('+groupAdv+') should be less than teams per group ('+tPerGroup+').';
+  else if(!isPow2) warn='🔴 '+bracketSize+' is not a valid bracket size — it must be 2, 4, 8, or 16. Adjust groups, advancing-per-group, or wildcard count.';
+  box.innerHTML=lines.join('<br>')+(warn?'<div style="color:'+(warn.indexOf('🔴')===0?'var(--red)':'#e8b339')+';margin-top:.4rem">'+warn+'</div>':'<div style="color:var(--green);margin-top:.4rem">✅ Valid setup</div>');
 }
 function selSwLeg(n){wizData.swissLegs=n;document.getElementById('swleg1').classList.toggle('on',n===1);document.getElementById('swleg2').classList.toggle('on',n===2);}
 function selLeg(n){wizData.legs=n;document.getElementById('leg1').classList.toggle('on',n===1);document.getElementById('leg2').classList.toggle('on',n===2);}
@@ -1045,13 +1086,18 @@ function selTLeg(n){wizData.tieLegs=n;document.getElementById('tleg1').classList
 // Wizard team list
 function buildWizGroupSel(){
   const row=document.getElementById('wizGroupRow');
+  const autoRow=document.getElementById('wizAutoGroupRow');
   if(wizData.format==='groups'){
     row.style.display='block';
+    if(autoRow) autoRow.style.display='block';
     const n=wizData.numGroups;
     let h='<option value="">-- Group --</option>';
     for(let i=0;i<n;i++)h+=`<option value="${String.fromCharCode(65+i)}">Group ${String.fromCharCode(65+i)}</option>`;
     document.getElementById('wizGroup').innerHTML=h;
-  } else {row.style.display='none';}
+  } else {
+    row.style.display='none';
+    if(autoRow) autoRow.style.display='none';
+  }
   renderWizTeams();
 }
 
@@ -1094,6 +1140,26 @@ function wizAddFromRegistry(){
   toast(`${regTeam.name} added`);
 }
 
+function wizImportAllRegistry(){
+  if(!registryTeams.length){toast('No teams in the registry yet',true);return;}
+  const existing=(wizData.teams||[]).map(t=>t.name.toLowerCase());
+  const toAdd=registryTeams.filter(t=>!existing.includes(t.name.toLowerCase()));
+  if(!toAdd.length){toast('All registry teams are already in the list',true);return;}
+  toAdd.forEach(t=>{
+    wizData.teams.push({
+      id:Date.now()+Math.random(),
+      registryId:t.id,
+      name:t.name,
+      coach:t.coach||'',
+      group:'',
+      played:0,won:0,drawn:0,lost:0,goalsFor:0,goalsAgainst:0,points:0
+    });
+  });
+  buildWizRegistryDropdown();
+  renderWizTeams();
+  toast(`📥 ${toAdd.length} team${toAdd.length!==1?'s':''} imported! Remove extras with ✕, then tap Auto-Assign Groups.`);
+}
+
 function renderWizTeams(){
   const el=document.getElementById('wizTeamList');
   if(!wizData.teams.length){el.innerHTML='<div class="empty" style="padding:1rem">No teams yet</div>';}
@@ -1110,6 +1176,18 @@ function renderWizTeams(){
 
 function wizDelTeam(i){wizData.teams.splice(i,1);renderWizTeams();}
 
+function wizAutoAssignGroups(){
+  if(!wizData.teams.length){toast('Add some teams first, then auto-assign',true);return;}
+  const n=wizData.numGroups||4;
+  // Fisher-Yates shuffle
+  const arr=[...wizData.teams];
+  for(let i=arr.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[arr[i],arr[j]]=[arr[j],arr[i]];}
+  arr.forEach((t,i)=>{t.group=String.fromCharCode(65+(i%n));});
+  wizData.teams=arr;
+  renderWizTeams();
+  toast(`🎲 ${arr.length} teams randomly distributed across ${n} groups!`);
+}
+
 function buildWizSummary(){
   const t=wizData;
   document.getElementById('wizSummary').innerHTML=`
@@ -1118,7 +1196,7 @@ function buildWizSummary(){
       <div style="font-size:.85rem;line-height:1.8">
         <div><strong style="color:var(--gold)">Name:</strong> ${t.name}${t.season?' – '+t.season:''}</div>
         <div><strong style="color:var(--gold)">Format:</strong> ${t.format==='league'?'League (All vs All)':t.format==='swiss'?'🔄 Swiss / UCL-Style':'Group Stage'}</div>
-        ${t.format==='league'?`<div><strong style="color:var(--gold)">Legs:</strong> ${t.legs===2?'Home & Away':'1 Leg'}</div><div><strong style="color:var(--gold)">Advancing:</strong> Top ${t.leagueAdv} teams</div>`:t.format==='swiss'?`<div><strong style="color:var(--gold)">Match Days:</strong> ${t.swissRounds}</div><div><strong style="color:var(--gold)">Auto-Qualify:</strong> Top ${t.swissAutoQual} teams</div><div><strong style="color:var(--gold)">Playoff Round:</strong> Next ${t.swissPlayoffTeams} teams (${t.swissPlayoffAdv} advance)</div><div><strong style="color:var(--gold)">Bracket Size:</strong> ${t.swissAutoQual+t.swissPlayoffAdv} teams</div>`:`<div><strong style="color:var(--gold)">Groups:</strong> ${t.numGroups} groups × ${t.tPerGroup} teams</div><div><strong style="color:var(--gold)">Advancing:</strong> Top ${t.groupAdv} per group</div>`}
+        ${t.format==='league'?`<div><strong style="color:var(--gold)">Legs:</strong> ${t.legs===2?'Home & Away':'1 Leg'}</div><div><strong style="color:var(--gold)">Advancing:</strong> Top ${t.leagueAdv} teams</div>`:t.format==='swiss'?`<div><strong style="color:var(--gold)">Match Days:</strong> ${t.swissRounds}</div><div><strong style="color:var(--gold)">Auto-Qualify:</strong> Top ${t.swissAutoQual} teams</div><div><strong style="color:var(--gold)">Playoff Round:</strong> Next ${t.swissPlayoffTeams} teams (${t.swissPlayoffAdv} advance)</div><div><strong style="color:var(--gold)">Bracket Size:</strong> ${t.swissAutoQual+t.swissPlayoffAdv} teams</div>`:`<div><strong style="color:var(--gold)">Groups:</strong> ${t.numGroups} groups × ${t.tPerGroup} teams</div><div><strong style="color:var(--gold)">Advancing:</strong> Top ${t.groupAdv} per group${t.groupThirdAdv?' + best '+t.groupThirdAdv+' 3rd-place':''}</div><div><strong style="color:var(--gold)">Bracket Size:</strong> ${(t.numGroups*t.groupAdv)+(t.groupThirdAdv||0)} teams</div>`}
         <div><strong style="color:var(--gold)">Set Playoff:</strong> ${t.playoffOn?(t.playoffType==='range'?`Ranks ${t.playoffFrom}–${t.playoffTo}`:'Group 3rd Place'):'Off'}</div>
         <div><strong style="color:var(--gold)">Teams:</strong> ${t.teams.length}</div>
       </div>
@@ -1132,7 +1210,7 @@ function wizLaunch(){
     name:t.name, season:t.season,
     format:t.format, legs:t.legs,
     leagueAdv:t.leagueAdv,
-    numGroups:t.numGroups, tPerGroup:t.tPerGroup, groupAdv:t.groupAdv, groupLegs:t.groupLegs,
+    numGroups:t.numGroups, tPerGroup:t.tPerGroup, groupAdv:t.groupAdv, groupThirdAdv:t.groupThirdAdv||0, groupLegs:t.groupLegs,
     playoffOn:t.playoffOn, playoffType:t.playoffType,
     playoffFrom:t.playoffFrom, playoffTo:t.playoffTo, playoffLegs:t.playoffLegs,
     tieLegs:t.tieLegs,
@@ -1263,13 +1341,32 @@ function showTab(name){
 function buildGroupSel(){
   const tour=getTour();if(!tour)return;
   const rows=[document.getElementById('addGroupRow')];
+  const autoCard=document.getElementById('autoGroupCard');
   if(tour.format==='groups'){
     rows.forEach(r=>r.style.display='block');
+    if(autoCard) autoCard.style.display='block';
     const n=tour.numGroups||4;
     let h='<option value="">-- Group --</option>';
     for(let i=0;i<n;i++){const g=String.fromCharCode(65+i);h+=`<option value="${g}">Group ${g}</option>`;}
     ['addGroup'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=h;});
-  } else {rows.forEach(r=>r.style.display='none');}
+  } else {
+    rows.forEach(r=>r.style.display='none');
+    if(autoCard) autoCard.style.display='none';
+  }
+}
+
+function doAutoAssignGroups(){
+  const tour=getTour();if(!tour)return;
+  if(!tour.teams.length){toast('No teams to assign',true);return;}
+  const n=tour.numGroups||4;
+  showConfirm(`Randomly shuffle and redistribute all ${tour.teams.length} teams across ${n} groups? Remember to regenerate fixtures afterwards.`,{title:'AUTO-ASSIGN GROUPS?',icon:'🎲',confirmLabel:'ASSIGN',danger:false,warning:true}).then(function(){
+    const arr=[...tour.teams];
+    for(let i=arr.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[arr[i],arr[j]]=[arr[j],arr[i]];}
+    arr.forEach((t,i)=>{t.group=String.fromCharCode(65+(i%n));});
+    tour.teams=arr;
+    sdb();renderTeams();updateAll();
+    toast(`🎲 ${arr.length} teams randomly assigned to ${n} groups! Regenerate fixtures when ready.`);
+  }).catch(function(){});
 }
 
 function buildTeamSelects(){
@@ -1353,6 +1450,7 @@ function deleteTeam(tid){
 function renderTeams(){
   const tour=getTour();
   if(tour) normalizeTour(tour);if(!tour)return;
+  buildGroupSel();
   const el=document.getElementById('teamsList');
   // Show/update the Generate Fixtures card in Teams tab
   const genCard=document.getElementById('teamsGenCard');
@@ -2030,13 +2128,95 @@ function renderTable(){
     // Group stage
     const groups={};
     tour.teams.forEach(t=>{if(!groups[t.group])groups[t.group]=[];groups[t.group].push(t);});
+    const gAdv=tour.groupAdv||2;
+    const gThird=tour.groupThirdAdv||0;
+    const groupKeys=Object.keys(groups).sort();
+
     let h='';
-    Object.keys(groups).sort().forEach(g=>{
+    groupKeys.forEach(g=>{
       const sorted=getSortedTeams(groups[g]);
       h+=`<div style="margin-bottom:1.2rem"><div style="font-family:'Anton',sans-serif;font-size:1rem;letter-spacing:2px;color:var(--gold);margin-bottom:.5rem">GROUP ${g}</div>`;
-      h+=buildUCLTable('',sorted,tour.groupAdv||2,0,tour,g);
+      h+=buildUCLTable('',sorted,gAdv,0,tour,g);
       h+='</div>';
     });
+
+    // ── Best 3rd-Place Wildcard Race table (shown when wildcards > 0) ──
+    if(gThird>0&&groupKeys.length>0){
+      const sortedGroups=groupKeys.map(g=>getSortedTeams(groups[g]));
+      const thirdPool=sortedGroups.map((sg,i)=>sg[gAdv]?{...sg[gAdv],_fromGroup:groupKeys[i]}:null).filter(Boolean);
+      if(thirdPool.length>0){
+        const rankedThirds=getSortedTeams(thirdPool);
+        h+=`<div style="margin-top:.5rem"><div style="font-family:'Anton',sans-serif;font-size:1rem;letter-spacing:2px;color:#ffaa00;margin-bottom:.3rem">🎯 WILDCARD RACE — BEST 3RD-PLACE TEAMS</div>`;
+        h+=`<div style="font-size:.75rem;color:var(--muted);margin-bottom:.6rem">Top <strong style="color:#ffaa00">${gThird}</strong> of ${thirdPool.length} third-place finishers qualify for the Round of 16. Ranked by Points → Goal Difference → Goals Scored.</div>`;
+        h+=`<div class="card" style="padding:.8rem"><div class="tbl-wrap"><table>
+          <thead><tr><th>#</th><th>TEAM</th><th>GRP</th><th>P</th><th>W</th><th>D</th><th>L</th><th>GF</th><th>GA</th><th>GD</th><th>PTS</th></tr></thead><tbody>`;
+        rankedThirds.forEach((t,i)=>{
+          const qualified=i<gThird;
+          const gd=t.goalsFor-t.goalsAgainst;
+          const zone=qualified?'zone-w':'zone-e';
+          const badge=qualified
+            ?`<span class="zone-label zl-w">✓ WILDCARD</span>`
+            :`<span class="zone-label zl-e">✗ OUT</span>`;
+          const regT=getRegTeam(t);
+          const logoSrc=regT&&regT.logoFilename?GITHUB_LOGOS_BASE+regT.logoFilename:(regT&&regT.logoUrl?regT.logoUrl:null);
+          const logoHtml=logoSrc
+            ?`<img src="${logoSrc}" style="width:18px;height:18px;object-fit:contain;flex-shrink:0;vertical-align:middle;margin-right:.3rem" onerror="this.style.display='none'">`
+            :`<span style="display:inline-block;width:18px;height:18px;text-align:center;font-size:.65rem;vertical-align:middle;margin-right:.3rem">⚽</span>`;
+          const showSep=i===gThird&&i>0;
+          h+=`<tr class="${zone}"${showSep?' style="border-top:2px dashed rgba(255,59,92,.3)"':''}>
+            <td><strong>${i+1}</strong></td>
+            <td><div style="display:flex;align-items:center">${logoHtml}<strong>${t.name}</strong></div></td>
+            <td style="font-size:.75rem;color:var(--muted)">Grp ${t._fromGroup}</td>
+            <td>${t.played}</td><td>${t.won}</td><td>${t.drawn}</td><td>${t.lost}</td>
+            <td>${t.goalsFor}</td><td>${t.goalsAgainst}</td>
+            <td>${gd>=0?'+':''}${gd}</td>
+            <td class="pts"><strong>${t.points}</strong></td>
+          </tr>`;
+        });
+        h+=`</tbody></table></div>
+          <div style="display:flex;gap:.6rem;margin-top:.6rem;flex-wrap:wrap">
+            <span class="zone-label zl-w">✓ Wildcard Qualified (top ${gThird})</span>
+            <span class="zone-label zl-e">✗ Eliminated</span>
+          </div>
+        </div></div>`;
+      }
+    }
+
+    // ── Groups Completion Banner ──
+    const allGroupMatchesDone=tour.matches.length>0&&tour.matches.filter(m=>!m.done&&!m.voided).length===0;
+    const hasBracket=tour.bracketRounds&&tour.bracketRounds.length>0;
+    if(allGroupMatchesDone&&!hasBracket){
+      // Collect qualified teams
+      const qualifiedTeams=[];
+      const sortedGroups=groupKeys.map(g=>getSortedTeams(groups[g]));
+      for(let rank=0;rank<gAdv;rank++){
+        sortedGroups.forEach((sg,gi)=>{if(sg[rank])qualifiedTeams.push({team:sg[rank],group:groupKeys[gi],rank:rank+1});});
+      }
+      // Wildcard qualifiers
+      let wildcardQualifiers=[];
+      if(gThird>0){
+        const thirdPool=sortedGroups.map((sg,i)=>sg[gAdv]?{...sg[gAdv],_fromGroup:groupKeys[i]}:null).filter(Boolean);
+        wildcardQualifiers=getSortedTeams(thirdPool).slice(0,gThird);
+      }
+      const totalQual=qualifiedTeams.length+wildcardQualifiers.length;
+      h+=`<div class="card" style="border:1.5px solid var(--green);padding:1rem;margin-top:.8rem">
+        <div style="font-family:'Anton',sans-serif;font-size:1rem;letter-spacing:2px;color:var(--green);margin-bottom:.6rem">✅ GROUP STAGE COMPLETE — ${totalQual} TEAMS QUALIFY</div>
+        <div style="font-size:.8rem;margin-bottom:.8rem">
+          <div style="color:var(--gold);font-weight:700;margin-bottom:.3rem">Auto-Qualifiers (${qualifiedTeams.length} teams):</div>
+          ${qualifiedTeams.map(q=>`<div style="display:flex;justify-content:space-between;padding:.2rem 0;border-bottom:1px solid rgba(255,255,255,.05)">
+            <span><strong>${q.team.name}</strong></span>
+            <span style="color:var(--muted);font-size:.72rem">Group ${q.group} · ${q.rank==='1st'?'1st':q.rank===1?'1st':q.rank===2?'2nd':'3rd'}</span>
+          </div>`).join('')}
+          ${wildcardQualifiers.length?`<div style="color:#ffaa00;font-weight:700;margin:.7rem 0 .3rem">🎯 Wildcard Qualifiers (${wildcardQualifiers.length} teams):</div>
+          ${wildcardQualifiers.map((t,i)=>{const gd=t.goalsFor-t.goalsAgainst;return`<div style="display:flex;justify-content:space-between;padding:.2rem 0;border-bottom:1px solid rgba(255,255,255,.05)">
+            <span><strong>${i+1}. ${t.name}</strong></span>
+            <span style="color:var(--muted);font-size:.72rem">Group ${t._fromGroup} · ${t.points}pts, ${gd>=0?'+':''}${gd} GD</span>
+          </div>`;}).join('')}`:''}
+        </div>
+        <button class="btn-full btn-gold" onclick="showTab('playoffs')" style="font-size:.85rem">⚡ GO TO KNOCKOUT → SIMULATE BRACKET</button>
+      </div>`;
+    }
+
     el.innerHTML=h||'<div class="empty">No groups yet</div>';
   }
 }
@@ -2141,6 +2321,12 @@ function buildUCLTable(title,teams,advCount,playoffCount,tour,group){
   const playoffZoneSize=hasBracket?0:(tour.playoffOn?(tour.playoffTo-tour.playoffFrom+1):0);
   const elimStart=advCount+playoffZoneSize;
 
+  // Wildcard zone: for groups format with best-3rd-place wildcards,
+  // the team at position advCount+1 in each group is a wildcard candidate
+  const isGroupsFmt=tour&&tour.format==='groups';
+  const gThird=isGroupsFmt?(tour.groupThirdAdv||0):0;
+  const wildcardCandidatePos=(gThird>0)?advCount+1:0; // 1-indexed
+
   let h=`<div class="card" style="padding:.8rem">`;
   if(title)h+=`<div style="font-family:'Anton',sans-serif;font-size:1.2rem;letter-spacing:2px;color:var(--gold);margin-bottom:.8rem">${title}</div>`;
 
@@ -2155,11 +2341,17 @@ function buildUCLTable(title,teams,advCount,playoffCount,tour,group){
     const gd=t.goalsFor-t.goalsAgainst;
     let zone='';
     let zl='';
-    if(pos<=advCount){zone='zone-q';zl='<span class="zone-label zl-q">QUALIFIED</span>';}
-    else if(!hasBracket&&tour.playoffOn&&pos<=advCount+playoffZoneSize){zone='zone-p';zl='<span class="zone-label zl-p">PLAYOFF</span>';}
-    else{zone='zone-e';zl='<span class="zone-label zl-e">ELIMINATED</span>';}
+    if(pos<=advCount){
+      zone='zone-q';zl='<span class="zone-label zl-q">QUALIFIED</span>';
+    } else if(wildcardCandidatePos&&pos===wildcardCandidatePos){
+      zone='zone-w';zl='<span class="zone-label zl-w">WILDCARD?</span>';
+    } else if(!hasBracket&&tour.playoffOn&&!isGroupsFmt&&pos<=advCount+playoffZoneSize){
+      zone='zone-p';zl='<span class="zone-label zl-p">PLAYOFF</span>';
+    } else {
+      zone='zone-e';zl='<span class="zone-label zl-e">ELIMINATED</span>';
+    }
 
-    const showSep=(i===advCount||(playoffZoneSize>0&&i===advCount+playoffZoneSize));
+    const showSep=(i===advCount||(playoffZoneSize>0&&!isGroupsFmt&&i===advCount+playoffZoneSize));
     const regT=getRegTeam(t);
     const logoSrc=regT&&regT.logoFilename?GITHUB_LOGOS_BASE+regT.logoFilename:(regT&&regT.logoUrl?regT.logoUrl:null);
     const logoHtml=logoSrc
@@ -2181,7 +2373,8 @@ function buildUCLTable(title,teams,advCount,playoffCount,tour,group){
   const qualLabel=hasBracket?`✓ Qualified – Playoffs (Top ${advCount})`:`✓ Qualified (Top ${advCount})`;
   h+=`<div style="display:flex;gap:.6rem;margin-top:.7rem;flex-wrap:wrap">
     <span class="zone-label zl-q">${qualLabel}</span>
-    ${!hasBracket&&tour.playoffOn&&playoffZoneSize?`<span class="zone-label zl-p">Playoff Zone</span>`:''}
+    ${wildcardCandidatePos?`<span class="zone-label zl-w">⚡ Wildcard Candidate</span>`:''}
+    ${!hasBracket&&tour.playoffOn&&playoffZoneSize&&!isGroupsFmt?`<span class="zone-label zl-p">Playoff Zone</span>`:''}
     <span class="zone-label zl-e">✗ Eliminated</span>
   </div>`;
   h+=`</div>`;
@@ -2352,6 +2545,14 @@ function simulateBracket(){
     // Update UI buttons if they exist (for non-Swiss reuse)
     [2,4,8,16].forEach(x=>{const el=document.getElementById('bq'+x);if(el)el.classList.toggle('on',x===bracketSize);});
   }
+  // For Groups: auto-use the correct bracket size ((groups × advPerGroup) + best-3rd wildcards)
+  if(tour.format==='groups'){
+    const gAdv=tour.groupAdv||2;
+    const gThird=tour.groupThirdAdv||0;
+    const numGroups=Object.keys(tour.teams.reduce((acc,t)=>{if(t.group)acc[t.group]=1;return acc;},{})).length;
+    bracketSize=(numGroups*gAdv)+gThird;
+    [2,4,8,16].forEach(x=>{const el=document.getElementById('bq'+x);if(el)el.classList.toggle('on',x===bracketSize);});
+  }
   const n=bracketSize;
   if(sorted.length<n){toast(`Not enough teams — need ${n} but only have ${sorted.length}`,true);return;}
 
@@ -2370,6 +2571,32 @@ function simulateBracket(){
       return;
     }
     seeds=[...autoQTeams,...poWinners.slice(0,poAdv)];
+  } else if(tour.format==='groups'){
+    // Group teams by their group letter/name, sorted within each group
+    const groups={};
+    tour.teams.forEach(t=>{ if(!groups[t.group]) groups[t.group]=[]; groups[t.group].push(t); });
+    const groupKeys=Object.keys(groups).sort();
+    const sortedGroups=groupKeys.map(g=>getSortedTeams(groups[g]));
+    const gAdv=tour.groupAdv||2;
+    const gThird=tour.groupThirdAdv||0;
+
+    // Auto-qualifiers: all rank-1 finishers (sorted among themselves), then all rank-2, etc.
+    const autoQualifiers=[];
+    for(let rank=0;rank<gAdv;rank++){
+      const tierTeams=sortedGroups.map(g=>g[rank]).filter(Boolean);
+      autoQualifiers.push(...getSortedTeams(tierTeams));
+    }
+    // Best-3rd-place wildcard pool: the team ranked immediately after the auto-qualify cutoff in each group
+    let wildcards=[];
+    if(gThird>0){
+      const thirdPlacePool=sortedGroups.map(g=>g[gAdv]).filter(Boolean);
+      if(thirdPlacePool.length<gThird){
+        toast(`Not enough 3rd-place candidates — need ${gThird} but only ${thirdPlacePool.length} group(s) have a team in that position.`,true);
+        return;
+      }
+      wildcards=getSortedTeams(thirdPlacePool).slice(0,gThird);
+    }
+    seeds=[...autoQualifiers,...wildcards];
   } else {
     seeds=sorted.slice(0,n);
   }
@@ -2462,6 +2689,7 @@ function getChampion(tour){
 function updateLiveAnimButtons(tour){
   const wBtn=document.getElementById('winnerAnimBtn');
   const jBtn=document.getElementById('journeyAnimBtn');
+  const gBtn=document.getElementById('groupRevealAnimBtn');
   const info=document.getElementById('liveAnimInfo');
   if(!wBtn||!jBtn) return;
   const champ=getChampion(tour);
@@ -2469,6 +2697,14 @@ function updateLiveAnimButtons(tour){
   jBtn.disabled=!champ;
   wBtn.style.opacity=champ?'1':'.45';
   jBtn.style.opacity=champ?'1':'.45';
+  // Group draw button: show for groups format with at least 1 team assigned to a group
+  if(gBtn){
+    const isGroups=tour&&tour.format==='groups';
+    const hasGroupedTeams=isGroups&&(tour.teams||[]).some(t=>t.group);
+    gBtn.style.display=isGroups?'block':'none';
+    gBtn.disabled=!hasGroupedTeams;
+    gBtn.style.opacity=hasGroupedTeams?'1':'.45';
+  }
   if(info) info.textContent=champ
     ?`Ready — champion is ${champ.name}. Tap a button to play it full-screen right here for recording.`
     :'Available once the Final has a winner. Tap a button to play it full-screen right here (great for screen recording) — it also updates the public page.';
@@ -4128,6 +4364,15 @@ function closeDrawAnimation(){
 .anim-match-team.winner-team{color:var(--gold2)}
 .anim-champ-name{font-family:'Anton',sans-serif;font-size:clamp(1.8rem,10vw,3.2rem);color:#f0d080;letter-spacing:3px;text-shadow:0 0 30px rgba(201,168,76,.9),0 0 70px rgba(240,208,128,.5);animation:championReveal 1s ease forwards;margin-top:.6rem}
 .anim-cup-img{width:120px;height:auto;object-fit:contain;animation:cupReveal .9s ease forwards,cupFloat 3.2s ease-in-out .9s infinite,cupGlow 3.2s ease-in-out .9s infinite}
+/* ── Group Stage Reveal animation styles ── */
+.anim-grp-label{font-family:'Anton',sans-serif;font-size:clamp(2.2rem,13vw,4rem);color:var(--gold);letter-spacing:6px;text-align:center;text-shadow:0 0 32px rgba(201,168,76,.85),0 0 80px rgba(201,168,76,.35);margin-bottom:.5rem}
+@keyframes grpFlash{0%{opacity:0;transform:scale(1.35);letter-spacing:14px}40%{opacity:1;transform:scale(1.04);letter-spacing:6px}70%{opacity:1;transform:scale(1);letter-spacing:6px}100%{opacity:1;transform:scale(1);letter-spacing:6px}}
+.anim-grp-flash{animation:grpFlash .55s cubic-bezier(.22,1,.36,1) forwards}
+.anim-grp-divider{width:80px;height:2px;background:linear-gradient(90deg,transparent,var(--gold),transparent);margin:.45rem auto .9rem;animation:fadeInUp .4s .3s ease forwards;opacity:0}
+.anim-grp-team-list{display:flex;flex-direction:column;gap:.38rem;max-width:340px;margin:0 auto}
+.anim-grp-team-row{display:flex;align-items:center;gap:.7rem;background:rgba(255,255,255,.05);border:1px solid rgba(201,168,76,.18);border-radius:10px;padding:.55rem .9rem;opacity:0;animation:fadeInUp .45s ease forwards}
+.anim-grp-avatar{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,var(--gold),var(--gold2));display:flex;align-items:center;justify-content:center;font-family:'Anton',sans-serif;font-size:.85rem;color:#0a0d18;flex-shrink:0}
+.anim-grp-team-name{font-family:'DM Sans',sans-serif;font-weight:700;font-size:.95rem;color:#e8eaf0;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 </style>
 <script>
 // ── Local instant playback of the two animations, for admin preview / screen recording ──
@@ -4213,6 +4458,68 @@ function countTotalMatches(tour){
   if(Array.isArray(tour.bracketRounds)) tour.bracketRounds.forEach(function(r){ r.matches.forEach(function(m){ if(m.done) n++; }); });
   return n;
 }
+function triggerGroupRevealAnim(){
+  const tour=getTour();if(!tour)return;
+  if(!(tour.teams||[]).some(t=>t.group)){toast('No teams are assigned to groups yet',true);return;}
+  playGroupRevealAnim(tour);
+}
+
+function playGroupRevealAnim(tour){
+  const teams=tour.teams||[];
+  const n=tour.numGroups||4;
+  // Build ordered group map A→B→C...
+  const groupMap={};
+  for(let i=0;i<n;i++){const letter=String.fromCharCode(65+i);groupMap[letter]=[];}
+  teams.forEach(t=>{if(t.group&&groupMap[t.group]!==undefined)groupMap[t.group].push(t);});
+  const letters=Object.keys(groupMap).filter(g=>groupMap[g].length>0);
+  if(!letters.length){toast('No teams assigned to groups yet',true);return;}
+
+  openAnimOverlay();
+  _animDoneFn=closeAnimOverlay;
+  const content=document.getElementById('animContent');
+
+  // Build slide list: intro + one slide per group
+  const slides=[];
+  slides.push({type:'groupIntro',tname:tour.name||'EFH'});
+  letters.forEach(letter=>{slides.push({type:'groupDraw',letter,teams:groupMap[letter]});});
+
+  let idx=0;
+  function renderSlide(){
+    if(idx>=slides.length){animAfter(800,closeAnimOverlay);return;}
+    const s=slides[idx];
+    content.innerHTML='';
+
+    if(s.type==='groupIntro'){
+      content.innerHTML=
+        '<div class="anim-eyebrow anim-line" style="animation-delay:.05s">'+s.tname+'</div>'+
+        '<div class="anim-headline anim-line" style="animation-delay:.2s;font-size:clamp(1.5rem,8vw,2.8rem)">GROUP STAGE DRAW</div>'+
+        '<div style="width:60px;height:2px;background:linear-gradient(90deg,transparent,var(--gold),transparent);margin:.9rem auto 0;opacity:0;animation:fadeInUp .5s .5s ease forwards"></div>'+
+        '<div class="anim-sub anim-line" style="animation-delay:.65s;margin-top:.8rem">The '+letters.length+' groups are revealed...</div>';
+      animAfter(2600,nextSlide);
+
+    } else if(s.type==='groupDraw'){
+      // Flash the group label, then teams appear
+      let teamsHtml='';
+      s.teams.forEach((t,i)=>{
+        const init=t.name?t.name[0].toUpperCase():'?';
+        teamsHtml+=
+          '<div class="anim-grp-team-row" style="animation-delay:'+(0.35+i*0.28)+'s">'+
+            '<span class="anim-grp-avatar">'+init+'</span>'+
+            '<span class="anim-grp-team-name">'+t.name+'</span>'+
+          '</div>';
+      });
+      content.innerHTML=
+        '<div class="anim-grp-label anim-grp-flash">GROUP '+s.letter+'</div>'+
+        '<div class="anim-grp-divider"></div>'+
+        '<div class="anim-grp-team-list">'+teamsHtml+'</div>';
+      // Linger long enough for all teams + 1.2s reading time
+      animAfter(600+s.teams.length*340+1200,nextSlide);
+    }
+  }
+  function nextSlide(){idx++;renderSlide();}
+  renderSlide();
+}
+
 function playWinnerRevealAnim(tour){
   var champ=getChampion(tour);
   if(!champ){toast('Final not decided yet',true);return;}
@@ -4459,7 +4766,13 @@ function runHealthCheck(){
       var groups={};
       (t.teams||[]).forEach(function(tm){ if(tm.group){ groups[tm.group]=(groups[tm.group]||0)+1; } });
       var sizes=Object.values(groups);
+      var numGroups=Object.keys(groups).length;
       if(sizes.length>1 && sizes.some(function(s){return s!==sizes[0];})) issues.push('🟡 "'+label+'": groups are uneven sizes ('+sizes.join(', ')+') — fine if intentional, but double check.');
+      var gAdv=t.groupAdv||2, gThird=t.groupThirdAdv||0;
+      var gBracketSize=(numGroups*gAdv)+gThird;
+      var gIsPow2=gBracketSize>0 && (gBracketSize & (gBracketSize-1))===0;
+      if(numGroups>0 && !gIsPow2) issues.push('🔴 "'+label+'": '+numGroups+' groups × top '+gAdv+' + '+gThird+' best-3rd wildcards = '+gBracketSize+', not a valid bracket size (needs 2/4/8/16).');
+      if(gThird>numGroups) issues.push('🔴 "'+label+'": best-3rd wildcards ('+gThird+') can not exceed the number of groups ('+numGroups+') — at most one 3rd-place team per group can qualify.');
     }
     // Bracket setup but playoff round not finished (swiss)
     if(t.format==='swiss' && t.swissPlayoffMatches && t.swissPlayoffMatches.length){
@@ -4516,7 +4829,7 @@ function buildAiContext(){
   var lines=[];
   (db.tournaments||[]).forEach(function(t){
     var champ=getChampion(t);
-    lines.push('• "'+t.name+'" ('+(t.season||'no season')+') — format:'+t.format+', status:'+(t.status||'active')+', teams:'+(t.teams||[]).length+', league matches done:'+(t.matches||[]).filter(function(m){return m.done;}).length+'/'+(t.matches||[]).length+(t.format==='swiss'?', swiss rounds:'+(t.swissRounds||'?')+', autoQual:'+(t.swissAutoQual||0)+', playoffAdv:'+(t.swissPlayoffAdv||0):'')+(champ?', CHAMPION: '+champ.name:', no champion yet'));
+    lines.push('• "'+t.name+'" ('+(t.season||'no season')+') — format:'+t.format+', status:'+(t.status||'active')+', teams:'+(t.teams||[]).length+', league matches done:'+(t.matches||[]).filter(function(m){return m.done;}).length+'/'+(t.matches||[]).length+(t.format==='swiss'?', swiss rounds:'+(t.swissRounds||'?')+', autoQual:'+(t.swissAutoQual||0)+', playoffAdv:'+(t.swissPlayoffAdv||0):'')+(t.format==='groups'?', groups:'+(t.numGroups||'?')+', advPerGroup:'+(t.groupAdv||2)+', best3rdWildcards:'+(t.groupThirdAdv||0):'')+(champ?', CHAMPION: '+champ.name:', no champion yet'));
   });
   lines.push('\nRegistry has '+(registryTeams||[]).length+' permanent teams.');
   var hc=runHealthCheck();
@@ -4541,7 +4854,7 @@ Key features and where they live:
 
 Format rules you should reason about when asked "how many teams do I need":
 - League: any number of teams works (round robin, byes if odd), admin picks how many advance to the bracket — that number must be 2, 4, 8, or 16.
-- Groups: teams are split into groups manually; top N per group advance; (number of groups × N advancing per group) must total 2, 4, 8, or 16.
+- Groups: teams are split into groups manually; top N per group advance automatically; (number of groups × N advancing per group) must total 2, 4, 8, or 16. Optionally, a number of "best 3rd-place" wildcard teams can also advance (Euro 2020/2024 style) — these are the highest-ranked teams that finished 3rd (or whichever place is just below the auto-qualify cutoff) across all groups, ranked against each other by points/goal difference/goals scored. At most one such wildcard can come from each group. The final bracket size is (groups × advPerGroup) + best3rdWildcards, and that total must still be 2, 4, 8, or 16.
 - Swiss: teams play N match days (Swiss pairing). swissAutoQual teams qualify directly from the table. The next swissPlayoffTeams teams (by rank) play a playoff round; swissPlayoffAdv of them advance. The bracket size is ALWAYS autoQual + playoffAdv, and that number MUST be 2, 4, 8, or 16, or the bracket cannot be built. Always check this math when asked about Swiss setup.
 
 You'll be given a live snapshot of the admin's actual tournaments and any detected issues before each question — use it to give specific, current answers (mention tournament names, exact counts) rather than generic ones. If the snapshot shows a detected issue relevant to the question, mention it and say exactly how to fix it using the navigation steps above.
