@@ -831,6 +831,42 @@ tbody tr:hover td{background:var(--card2)!important;filter:none}
 
 @keyframes tppFadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 .tpp-anim{animation:tppFadeIn .25s ease both}
+/* ── VERTICAL LOGO-ONLY BRACKET OVERVIEW ── */
+.vlb-caption{font-size:.68rem;color:var(--muted);text-align:center;margin:0 0 1rem;line-height:1.5}
+.vlb-wrap{display:flex;flex-direction:column;align-items:center;padding:.8rem .3rem 1.2rem;
+  background:radial-gradient(circle at 50% 50%, rgba(201,168,76,.05), transparent 60%);
+  border-top:1px solid var(--border);border-bottom:1px solid var(--border);margin-bottom:1.2rem}
+.vlb-half{display:flex;flex-direction:column;width:100%;max-width:460px}
+.vlb-half.bottom{transform:scaleY(-1)}
+.vlb-half.bottom .vlb-round-label{transform:scaleY(-1)}
+.vlb-half.bottom .vlb-slot img{transform:scaleY(-1)}
+.vlb-round{display:flex;flex-direction:column;align-items:center;width:100%;margin-bottom:6px}
+.vlb-round-label{font-family:'Oswald',sans-serif;font-size:.55rem;letter-spacing:1.5px;color:var(--gold);
+  text-transform:uppercase;margin-bottom:.35rem;white-space:nowrap}
+.vlb-round-body{width:100%;display:flex;flex-direction:row;justify-content:space-around;padding:6px 0;flex-wrap:wrap;row-gap:10px}
+.vlb-match{position:relative;flex:1 1 0;min-width:60px;display:flex;flex-direction:row;justify-content:center;align-items:center;gap:8px}
+.vlb-match::after{content:'';position:absolute;left:25%;right:25%;bottom:-10px;height:10px;
+  border:2px solid var(--gold);border-top:none;border-radius:0 0 6px 6px;opacity:.5}
+.vlb-round.last .vlb-match::after{display:none}
+.vlb-slot{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  background:var(--card2);border:2px solid var(--border);flex-shrink:0;transition:all .2s;overflow:hidden}
+.vlb-slot img{width:24px;height:24px;object-fit:contain}
+.vlb-slot.out{opacity:.32;filter:grayscale(1)}
+.vlb-slot.won{border-color:var(--gold);box-shadow:0 0 10px rgba(201,168,76,.45);background:rgba(201,168,76,.08)}
+.vlb-slot.pending{border-color:var(--border2)}
+.vlb-center{display:flex;flex-direction:column;align-items:center;padding:.7rem 0 1rem}
+.vlb-final-row{display:flex;align-items:center;justify-content:center;gap:14px}
+.vlb-final-row .vlb-slot{width:46px;height:46px}
+.vlb-final-row .vlb-slot img{width:32px;height:32px}
+.vlb-trophy-block{display:flex;flex-direction:column;align-items:center;gap:.2rem;margin:0 4px;min-width:60px}
+.vlb-trophy-img{width:50px;object-fit:contain;filter:drop-shadow(0 0 14px rgba(201,168,76,.45))}
+.vlb-champion-banner{font-family:'Anton',sans-serif;font-size:.6rem;letter-spacing:2px;color:var(--gold);margin-top:.15rem}
+.vlb-champion-name{font-family:'Oswald',sans-serif;font-size:.52rem;letter-spacing:1.5px;color:var(--text);text-align:center}
+.vlb-legend{display:flex;justify-content:center;gap:1.2rem;margin:0 0 1.3rem;font-size:.6rem;color:var(--muted)}
+.vlb-legend span{display:inline-flex;align-items:center;gap:.35rem}
+.vlb-dot{width:9px;height:9px;border-radius:50%;display:inline-block}
+.vlb-dot.gold{background:var(--gold);box-shadow:0 0 6px rgba(201,168,76,.5)}
+.vlb-dot.gray{background:#333;border:1px solid var(--border)}
 </style>
 <!-- Firebase SDK -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
@@ -2101,6 +2137,67 @@ function renderPlayoffs(){
   var thirdRound=tour.bracketRounds.find(function(r){return r.matches[0]&&r.matches[0].is3rd;});
   if(!mainRounds.length){bc.innerHTML='<div class="empty"><div class="empty-icon">🏆</div>Bracket is being set up</div>';return;}
 
+  // ── Vertical logo-only bracket overview (sits above the detailed cards below) ──
+  var vlbHtml=(function(){
+    function vlbSlot(team,state){
+      var name=team?team.name:null;
+      var inner;
+      if(!name||name==='TBD'){
+        inner='<span style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:.75rem">⚽</span>';
+      } else {
+        var t=tour.teams.find(function(x){return x.name===name;});
+        var regT=t?resolveRegTeam(t):null;
+        var src=regT&&regT.logoFilename?GITHUB_LOGOS_BASE+regT.logoFilename:(regT&&regT.logoUrl?regT.logoUrl:null);
+        inner=src
+          ? '<img src="'+src+'" onerror="logoRetry(this)">'
+          : '<span style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:.75rem">⚽</span>';
+      }
+      return '<div class="vlb-slot '+state+'">'+inner+'</div>';
+    }
+    function vlbState(m,side){
+      if(!m||!m.winner) return 'pending';
+      var name=side==='t1'?(m.t1?m.t1.name:null):(m.t2?m.t2.name:null);
+      return (name&&m.winner.name===name)?'won':'out';
+    }
+    function vlbMatch(m){
+      return '<div class="vlb-match">'+vlbSlot(m.t1,vlbState(m,'t1'))+vlbSlot(m.t2,vlbState(m,'t2'))+'</div>';
+    }
+    function vlbRound(matches,label,isLast){
+      return '<div class="vlb-round'+(isLast?' last':'')+'">'
+        +'<div class="vlb-round-label">'+label.toUpperCase()+'</div>'
+        +'<div class="vlb-round-body">'+matches.map(vlbMatch).join('')+'</div></div>';
+    }
+    var preFinalRounds=mainRounds.slice(0,mainRounds.length-1);
+    var finalRound=mainRounds[mainRounds.length-1];
+    var topHtml=preFinalRounds.map(function(r,ri){
+      var half=Math.ceil(r.matches.length/2);
+      return vlbRound(r.matches.slice(0,half),r.name,ri===preFinalRounds.length-1);
+    }).join('');
+    var bottomHtml=preFinalRounds.map(function(r,ri){
+      var half=Math.ceil(r.matches.length/2);
+      return vlbRound(r.matches.slice(half),r.name,ri===preFinalRounds.length-1);
+    }).join('');
+    var fm=finalRound.matches[0];
+    var champion=fm&&fm.winner?fm.winner.name:null;
+    var cupSrc=tour.winnerTrophyImg||'efh_cup.png';
+    var centerHtml='<div class="vlb-center">'
+      +'<div class="vlb-round-label">FINAL</div>'
+      +'<div class="vlb-final-row">'
+        +vlbSlot(fm?fm.t1:null,vlbState(fm,'t1'))
+        +'<div class="vlb-trophy-block"><img src="'+cupSrc+'" class="vlb-trophy-img" onerror="this.style.display=\'none\'">'
+          +(champion?('<div class="vlb-champion-banner">CHAMPION</div><div class="vlb-champion-name">'+champion.toUpperCase()+'</div>'):'')
+        +'</div>'
+        +vlbSlot(fm?fm.t2:null,vlbState(fm,'t2'))
+      +'</div></div>';
+    return '<div class="vlb-caption">Tap into a round below for full names, scores and dates.</div>'
+      +'<div class="vlb-wrap">'
+      +(topHtml?'<div class="vlb-half top">'+topHtml+'</div>':'')
+      +centerHtml
+      +(bottomHtml?'<div class="vlb-half bottom">'+bottomHtml+'</div>':'')
+      +'</div>'
+      +'<div class="vlb-legend"><span><span class="vlb-dot gold"></span>Advanced</span><span><span class="vlb-dot gray"></span>Eliminated</span></div>';
+  })();
+
   // ── Helper: get logo for a team ──
   // ── Helper: get logo for a team ──
   function bktLogo(teamName){
@@ -2217,7 +2314,7 @@ function renderPlayoffs(){
   }
 
   html+='</div>';
-  bc.innerHTML=html;
+  bc.innerHTML=vlbHtml+html;
 }
 
 
