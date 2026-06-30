@@ -3578,27 +3578,29 @@ function logoRetryInitial(img,letter){
   img.src=GITHUB_LOGOS_FALLBACK+filename;
 }
 
-// ── LIVE LOGO AUTO-DETECTION ──
-// CLUB_DIRECTORY below is a curated list with proper names + league tags.
-// New uploads to the GitHub repo don't know to add themselves here, so this
-// asks jsDelivr (which already mirrors the repo for hotlinking) for the live
-// file list and auto-registers anything missing as a plain searchable entry
-// (no league tag yet — just enough to find it by name immediately).
-var LOGO_REPO_LISTING_API='https://data.jsdelivr.com/v1/package/gh/Prime-eFootball-League/Pfl-logo@main/flat';
-var LOGO_LIVE_CACHE_KEY='efh_live_logo_cache_v1';
-var LOGO_LIVE_CACHE_MAX_AGE=6*60*60*1000; // 6 hours
+// ── LIVE LOGO DIRECTORY (index.json) ──
+// CLUB_DIRECTORY below is the built-in baseline shipped with the app — changing
+// it requires editing this file and redeploying to Netlify (a deploy credit
+// every time, for one tiny entry). To add new logos WITHOUT a redeploy, this
+// instead reads index.json directly from the Pfl-logo GitHub repo via jsDelivr.
+// Because it's just another file in the repo (not a separate listing API), it's
+// available the instant you push it — same speed as the logo PNGs themselves,
+// no lag. To add a team going forward: upload the logo PNG to the repo AND add
+// one line to index.json in the repo root, e.g.:
+//   {"s":"union-saint-gilloise","n":"Union Saint Gilloise","l":"Belgian Pro League"}
+// "s" must exactly match the PNG filename (without .png).
+var LOGO_INDEX_URL='https://cdn.jsdelivr.net/gh/Prime-eFootball-League/Pfl-logo@main/index.json';
+var LOGO_LIVE_CACHE_KEY='efh_live_logo_cache_v2';
+var LOGO_LIVE_CACHE_MAX_AGE=30*60*1000; // 30 min — index.json is cheap to re-check often
 
-function titleCaseSlug(slug){
-  return slug.split('-').map(function(w){return w.charAt(0).toUpperCase()+w.slice(1);}).join(' ');
-}
-function mergeDetectedSlugs(slugs){
+function mergeDetectedEntries(entries){
   var existing={};
   CLUB_DIRECTORY.forEach(function(c){existing[c.s]=true;});
   var added=0;
-  (slugs||[]).forEach(function(slug){
-    if(!existing[slug]){
-      CLUB_DIRECTORY.push({s:slug,n:titleCaseSlug(slug),l:'Recently Added'});
-      existing[slug]=true;
+  (entries||[]).forEach(function(c){
+    if(c&&c.s&&!existing[c.s]){
+      CLUB_DIRECTORY.push({s:c.s,n:c.n||c.s,l:c.l||'Recently Added'});
+      existing[c.s]=true;
       added++;
     }
   });
@@ -3608,20 +3610,16 @@ function syncLiveLogoDirectory(force){
   var cacheRaw=localStorage.getItem(LOGO_LIVE_CACHE_KEY);
   var cache=null;
   try{ cache=cacheRaw?JSON.parse(cacheRaw):null; }catch(e){ cache=null; }
-  if(cache&&cache.slugs) mergeDetectedSlugs(cache.slugs); // apply cache immediately, even before a fresh fetch
+  if(cache&&cache.entries) mergeDetectedEntries(cache.entries); // apply cache immediately, even before a fresh fetch
   var fresh=cache&&(Date.now()-cache.ts<LOGO_LIVE_CACHE_MAX_AGE);
   if(fresh&&!force) return Promise.resolve(0);
-  return fetch(LOGO_REPO_LISTING_API)
-    .then(function(r){ return r.json(); })
-    .then(function(data){
-      var slugs=(data.files||[])
-        .map(function(f){return f.name||'';})
-        .filter(function(n){return /\.(png|jpg|jpeg|svg|webp)$/i.test(n);})
-        .map(function(n){return n.replace(/^\//,'').replace(/\.(png|jpg|jpeg|svg|webp)$/i,'');});
-      localStorage.setItem(LOGO_LIVE_CACHE_KEY,JSON.stringify({slugs:slugs,ts:Date.now()}));
-      return mergeDetectedSlugs(slugs);
+  return fetch(LOGO_INDEX_URL+'?t='+Date.now()) // cache-bust so a fresh push is seen immediately
+    .then(function(r){ if(!r.ok) throw new Error('no index.json yet'); return r.json(); })
+    .then(function(entries){
+      localStorage.setItem(LOGO_LIVE_CACHE_KEY,JSON.stringify({entries:entries,ts:Date.now()}));
+      return mergeDetectedEntries(entries);
     })
-    .catch(function(){ return 0; }); // offline / API hiccup — silently keep using what we have
+    .catch(function(){ return 0; }); // index.json missing/offline — silently keep using what we have
 }
 function refreshLiveLogos(){
   var btn=document.getElementById('logoRefreshBtn');
@@ -3929,6 +3927,8 @@ var CLUB_DIRECTORY=[
   {s:"uruguay",n:"Uruguay",l:"National Team"},
   {s:"usa",n:"USA",l:"National Team"},
   {s:"uzbekistan",n:"Uzbekistan",l:"National Team"},
+  {s:"union-saint-gilloise",n:"Union Saint Gilloise",l:"Belgian Pro League"},
+  {s:"haram-football",n:"Haram Football",l:"EFH Custom Club"},
 ];
 // Total: 242 clubs across 13 leagues
 
