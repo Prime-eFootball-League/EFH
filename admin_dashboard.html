@@ -714,6 +714,7 @@ td.pts{font-family:'Anton',sans-serif;font-size:1.1rem;color:var(--gold);text-sh
         <div class="card-title" style="margin-bottom:.5rem">🎬 Live Show Animations</div>
         <div class="info" id="liveAnimInfo" style="margin-bottom:.7rem">Available once the Final has a winner. Tap a button to play it full-screen right here (great for screen recording) — it also updates the public page.</div>
         <button class="btn-full btn-gold" id="groupRevealAnimBtn" style="margin-bottom:.55rem;display:none" onclick="triggerGroupRevealAnim()">🏟️ PLAY GROUP STAGE DRAW</button>
+        <button class="btn-full btn-gold" id="bracketSeedAnimBtn" style="margin-bottom:.55rem;display:none" onclick="triggerBracketSeedAnim()">🏟️ PLAY BRACKET DRAW</button>
         <button class="btn-full btn-gold" id="winnerAnimBtn" style="margin-bottom:.55rem" onclick="triggerWinnerAnim()" disabled>🎬 PLAY WINNER REVEAL</button>
         <button class="btn-full btn-gold" id="journeyAnimBtn" onclick="triggerJourneyAnim()" disabled>🏟️ PLAY TOURNAMENT JOURNEY (R16 → FINAL)</button>
       </div>
@@ -2779,6 +2780,14 @@ function updateLiveAnimButtons(tour){
     gBtn.disabled=!hasGroupedTeams;
     gBtn.style.opacity=hasGroupedTeams?'1':'.45';
   }
+  // Bracket draw button: show once the bracket has been seeded (first round has teams in it)
+  const bBtn=document.getElementById('bracketSeedAnimBtn');
+  if(bBtn){
+    const firstRound=tour&&Array.isArray(tour.bracketRounds)&&tour.bracketRounds[0];
+    const hasSeeds=firstRound&&firstRound.matches&&firstRound.matches.some(m=>m.t1&&m.t2);
+    bBtn.style.display=hasSeeds?'block':'none';
+    if(hasSeeds) bBtn.textContent='🏟️ PLAY '+(firstRound.name||'BRACKET').toUpperCase()+' DRAW';
+  }
   if(info) info.textContent=champ
     ?`Ready — champion is ${champ.name}. Tap a button to play it full-screen right here for recording.`
     :'Available once the Final has a winner. Tap a button to play it full-screen right here (great for screen recording) — it also updates the public page.';
@@ -4584,6 +4593,9 @@ function closeDrawAnimation(){
 .anim-grp-team-row{display:flex;align-items:center;gap:.7rem;background:rgba(255,255,255,.05);border:1px solid rgba(201,168,76,.18);border-radius:10px;padding:.55rem .9rem;opacity:0;animation:fadeInUp .45s ease forwards}
 .anim-grp-avatar{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,var(--gold),var(--gold2));display:flex;align-items:center;justify-content:center;font-family:'Anton',sans-serif;font-size:.85rem;color:#0a0d18;flex-shrink:0}
 .anim-grp-team-name{font-family:'DM Sans',sans-serif;font-weight:700;font-size:.95rem;color:#e8eaf0;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.anim-vs-row{display:flex;align-items:center;justify-content:center;gap:.9rem;opacity:0;animation:fadeInUp .5s ease forwards;max-width:420px;margin:0 auto .65rem}
+.anim-vs-team{flex:1;background:rgba(255,255,255,.05);border:1px solid rgba(201,168,76,.18);border-radius:10px;padding:.6rem .8rem;text-align:center;font-family:'DM Sans',sans-serif;font-weight:700;font-size:.92rem;color:#e8eaf0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.anim-vs-divider{font-family:'Anton',sans-serif;font-size:.85rem;color:var(--gold);letter-spacing:1px;flex-shrink:0}
 </style>
 <script>
 // ── Local instant playback of the two animations, for admin preview / screen recording ──
@@ -4725,6 +4737,61 @@ function playGroupRevealAnim(tour){
         '<div class="anim-grp-team-list">'+teamsHtml+'</div>';
       // Linger long enough for all teams + 1.2s reading time
       animAfter(600+s.teams.length*340+1200,nextSlide);
+    }
+  }
+  function nextSlide(){idx++;renderSlide();}
+  renderSlide();
+}
+
+function triggerBracketSeedAnim(){
+  const tour=getTour();if(!tour)return;
+  const firstRound=Array.isArray(tour.bracketRounds)&&tour.bracketRounds[0];
+  const hasSeeds=firstRound&&firstRound.matches&&firstRound.matches.some(m=>m.t1&&m.t2);
+  if(!hasSeeds){toast('Simulate the bracket first to generate matchups',true);return;}
+  playBracketSeedAnim(tour,firstRound);
+}
+
+function playBracketSeedAnim(tour,firstRound){
+  const matches=(firstRound.matches||[]).filter(m=>m.t1&&m.t2);
+  if(!matches.length){toast('No matchups to reveal yet',true);return;}
+
+  openAnimOverlay();
+  _animDoneFn=closeAnimOverlay;
+  const content=document.getElementById('animContent');
+
+  const slides=[];
+  slides.push({type:'bracketIntro',tname:tour.name||'EFH',rname:firstRound.name||'Bracket'});
+  slides.push({type:'bracketMatches',matches,rname:firstRound.name||'Bracket'});
+
+  let idx=0;
+  function renderSlide(){
+    if(idx>=slides.length){animAfter(800,closeAnimOverlay);return;}
+    const s=slides[idx];
+    content.innerHTML='';
+
+    if(s.type==='bracketIntro'){
+      content.innerHTML=
+        '<div class="anim-eyebrow anim-line" style="animation-delay:.05s">'+s.tname+'</div>'+
+        '<div class="anim-headline anim-line" style="animation-delay:.2s;font-size:clamp(1.5rem,8vw,2.8rem)">'+s.rname.toUpperCase()+' DRAW</div>'+
+        '<div style="width:60px;height:2px;background:linear-gradient(90deg,transparent,var(--gold),transparent);margin:.9rem auto 0;opacity:0;animation:fadeInUp .5s .5s ease forwards"></div>'+
+        '<div class="anim-sub anim-line" style="animation-delay:.65s;margin-top:.8rem">The bracket is revealed...</div>';
+      animAfter(2600,nextSlide);
+
+    } else if(s.type==='bracketMatches'){
+      let rowsHtml='';
+      s.matches.forEach((m,i)=>{
+        rowsHtml+=
+          '<div class="anim-vs-row" style="animation-delay:'+(0.3+i*0.45)+'s">'+
+            '<span class="anim-vs-team">'+m.t1.name+'</span>'+
+            '<span class="anim-vs-divider">VS</span>'+
+            '<span class="anim-vs-team">'+m.t2.name+'</span>'+
+          '</div>';
+      });
+      content.innerHTML=
+        '<div class="anim-grp-label anim-grp-flash" style="font-size:clamp(1.5rem,8vw,2.6rem)">'+s.rname.toUpperCase()+'</div>'+
+        '<div class="anim-grp-divider"></div>'+
+        '<div style="max-width:420px;margin:0 auto">'+rowsHtml+'</div>';
+      animAfter(700+s.matches.length*450+1400,nextSlide);
     }
   }
   function nextSlide(){idx++;renderSlide();}
