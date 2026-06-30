@@ -3578,6 +3578,61 @@ function logoRetryInitial(img,letter){
   img.src=GITHUB_LOGOS_FALLBACK+filename;
 }
 
+// ── LIVE LOGO AUTO-DETECTION ──
+// CLUB_DIRECTORY below is a curated list with proper names + league tags.
+// New uploads to the GitHub repo don't know to add themselves here, so this
+// asks jsDelivr (which already mirrors the repo for hotlinking) for the live
+// file list and auto-registers anything missing as a plain searchable entry
+// (no league tag yet — just enough to find it by name immediately).
+var LOGO_REPO_LISTING_API='https://data.jsdelivr.com/v1/package/gh/Prime-eFootball-League/Pfl-logo@main/flat';
+var LOGO_LIVE_CACHE_KEY='efh_live_logo_cache_v1';
+var LOGO_LIVE_CACHE_MAX_AGE=6*60*60*1000; // 6 hours
+
+function titleCaseSlug(slug){
+  return slug.split('-').map(function(w){return w.charAt(0).toUpperCase()+w.slice(1);}).join(' ');
+}
+function mergeDetectedSlugs(slugs){
+  var existing={};
+  CLUB_DIRECTORY.forEach(function(c){existing[c.s]=true;});
+  var added=0;
+  (slugs||[]).forEach(function(slug){
+    if(!existing[slug]){
+      CLUB_DIRECTORY.push({s:slug,n:titleCaseSlug(slug),l:'Recently Added'});
+      existing[slug]=true;
+      added++;
+    }
+  });
+  return added;
+}
+function syncLiveLogoDirectory(force){
+  var cacheRaw=localStorage.getItem(LOGO_LIVE_CACHE_KEY);
+  var cache=null;
+  try{ cache=cacheRaw?JSON.parse(cacheRaw):null; }catch(e){ cache=null; }
+  if(cache&&cache.slugs) mergeDetectedSlugs(cache.slugs); // apply cache immediately, even before a fresh fetch
+  var fresh=cache&&(Date.now()-cache.ts<LOGO_LIVE_CACHE_MAX_AGE);
+  if(fresh&&!force) return Promise.resolve(0);
+  return fetch(LOGO_REPO_LISTING_API)
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+      var slugs=(data.files||[])
+        .map(function(f){return f.name||'';})
+        .filter(function(n){return /\.(png|jpg|jpeg|svg|webp)$/i.test(n);})
+        .map(function(n){return n.replace(/^\//,'').replace(/\.(png|jpg|jpeg|svg|webp)$/i,'');});
+      localStorage.setItem(LOGO_LIVE_CACHE_KEY,JSON.stringify({slugs:slugs,ts:Date.now()}));
+      return mergeDetectedSlugs(slugs);
+    })
+    .catch(function(){ return 0; }); // offline / API hiccup — silently keep using what we have
+}
+function refreshLiveLogos(){
+  var btn=document.getElementById('logoRefreshBtn');
+  if(btn){ btn.textContent='⏳'; btn.style.pointerEvents='none'; }
+  syncLiveLogoDirectory(true).then(function(){
+    if(btn){ btn.textContent='🔄'; btn.style.pointerEvents='auto'; }
+    var input=document.getElementById('regLogoSearch');
+    showLogoGrid(input?input.value:'');
+  });
+}
+
 var CLUB_DIRECTORY=[
   {s:"milan",n:"AC Milan",l:"Serie A"},
   {s:"ajax",n:"Ajax",l:"Eredivisie"},
@@ -3901,6 +3956,7 @@ function showLogoGrid(filterVal){
     +"<div style=\"display:flex;gap:.3rem\">"
     +"<button onclick=\"setLogoSort('alpha')\" style=\"font-family:'Oswald',sans-serif;font-size:.58rem;padding:.15rem .5rem;border-radius:10px;border:1px solid;cursor:pointer;background:"+azBg+";color:"+azCol+";border-color:"+azBdr+"\">A\u2013Z</button>"
     +"<button onclick=\"setLogoSort('league')\" style=\"font-family:'Oswald',sans-serif;font-size:.58rem;padding:.15rem .5rem;border-radius:10px;border:1px solid;cursor:pointer;background:"+lgBg+";color:"+lgCol+";border-color:"+lgBdr+"\">League</button>"
+    +"<button id=\"logoRefreshBtn\" onclick=\"refreshLiveLogos()\" title=\"Check for newly uploaded logos\" style=\"font-family:'Oswald',sans-serif;font-size:.65rem;padding:.15rem .5rem;border-radius:10px;border:1px solid var(--border);cursor:pointer;background:transparent;color:var(--muted)\">\ud83d\udd04</button>"
     +"</div></div>";
   if(_logoSortMode==='alpha'){
     matches.sort(function(a,b){return a.n.localeCompare(b.n);});
@@ -4106,6 +4162,7 @@ function renderRegistry(){
 checkSession();
 gdb();
 loadRegistry();
+syncLiveLogoDirectory();
 renderList();
 renderRegistry();
 buildRegistryDropdown();
