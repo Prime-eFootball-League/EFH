@@ -4781,7 +4781,7 @@ function playBracketSeedAnim(tour,firstRound){
       let rowsHtml='';
       s.matches.forEach((m,i)=>{
         rowsHtml+=
-          '<div class="anim-vs-row" style="animation-delay:'+(0.3+i*0.45)+'s">'+
+          '<div class="anim-vs-row" style="animation-delay:'+(0.3+i*2)+'s">'+
             '<span class="anim-vs-team">'+m.t1.name+'</span>'+
             '<span class="anim-vs-divider">VS</span>'+
             '<span class="anim-vs-team">'+m.t2.name+'</span>'+
@@ -4791,7 +4791,7 @@ function playBracketSeedAnim(tour,firstRound){
         '<div class="anim-grp-label anim-grp-flash" style="font-size:clamp(1.5rem,8vw,2.6rem)">'+s.rname.toUpperCase()+'</div>'+
         '<div class="anim-grp-divider"></div>'+
         '<div style="max-width:420px;margin:0 auto">'+rowsHtml+'</div>';
-      animAfter(700+s.matches.length*450+1400,nextSlide);
+      animAfter(700+s.matches.length*2000+1400,nextSlide);
     }
   }
   function nextSlide(){idx++;renderSlide();}
