@@ -686,7 +686,7 @@ td.pts{font-family:'Anton',sans-serif;font-size:1.1rem;color:var(--gold);text-sh
             <button class="del-btn" style="background:var(--red);color:#fff;padding:.3rem .7rem;border-radius:6px;font-size:.75rem" onclick="resetBracket()">Reset</button>
           </div>
         </div>
-        <div id="bracketRounds" style="overflow-x:auto"></div>
+        <div id="bracketRounds"></div>
       </div>
 
       <!-- Trophy Upload Card -->
@@ -2788,6 +2788,15 @@ function updateLiveAnimButtons(tour){
     bBtn.style.display=hasSeeds?'block':'none';
     if(hasSeeds) bBtn.textContent='🏟️ PLAY '+(firstRound.name||'BRACKET').toUpperCase()+' DRAW';
   }
+  const sBtn=document.getElementById('bracketSeedAnimBtn');
+  if(sBtn){
+    const firstRound=Array.isArray(tour.bracketRounds)&&tour.bracketRounds[0];
+    const hasSeeds=firstRound&&(firstRound.matches||[]).some(m=>m.t1&&m.t2);
+    sBtn.style.display=(tour.bracketRounds&&tour.bracketRounds.length)?'block':'none';
+    sBtn.disabled=!hasSeeds;
+    sBtn.style.opacity=hasSeeds?'1':'.45';
+    if(hasSeeds) sBtn.textContent='🎲 PLAY '+(firstRound.name||'BRACKET').toUpperCase()+' DRAW';
+  }
   if(info) info.textContent=champ
     ?`Ready — champion is ${champ.name}. Tap a button to play it full-screen right here for recording.`
     :'Available once the Final has a winner. Tap a button to play it full-screen right here (great for screen recording) — it also updates the public page.';
@@ -2916,171 +2925,109 @@ function renderBracket(){
   const isSwiss=tour.format==='swiss';
   if(!tour.bracketRounds||!tour.bracketRounds.length){
     document.getElementById('bracketDisplay').style.display='none';
-    // For Swiss: hide setup card entirely — settings come from tournament creation
-    // and are controlled by renderSwissPlayoffCard
     document.getElementById('bracketSetupCard').style.display=isSwiss?'none':'';
     return;
   }
   document.getElementById('bracketSetupCard').style.display='none';
   document.getElementById('bracketDisplay').style.display='';
 
-  // ── 2-sided UCL visual bracket (left QF→SF | Final | SF←QF right) ──
   const rounds=tour.bracketRounds.filter(r=>r.matches[0]&&!r.matches[0].is3rd);
   const thirdRound=tour.bracketRounds.find(r=>r.matches[0]&&r.matches[0].is3rd);
 
-  function bMatchCard(m,align){
-    const t1=m.t1?m.t1.name:'TBD';
-    const t2=m.t2?m.t2.name:'TBD';
-    const w1=m.winner&&m.winner.name===t1;
-    const w2=m.winner&&m.winner.name===t2;
-    // Build score string for bracket card
-    let scoreStr='TBC';
-    if(m.legs===2){
-      const hasL1=m.leg1h!=null&&m.leg1a!=null;
-      const hasL2=m.leg2h!=null&&m.leg2a!=null;
-      if(hasL1&&hasL2){
-        // Show aggregate whenever both legs exist (with ET/PK if done)
-        const agg1=(m.leg1h||0)+(m.leg2a||0)+(m.et1h||0)+(m.et2a||0);
-        const agg2=(m.leg1a||0)+(m.leg2h||0)+(m.et1a||0)+(m.et2h||0);
-        scoreStr=agg1+'–'+agg2+(m.pk2h!=null?' (PK '+m.pk2h+'–'+m.pk2a+')':'');
-      } else if(hasL1){
-        scoreStr='L1: '+m.leg1h+'–'+m.leg1a;
-      }
+  // ── Vertical logo-only bracket (same style as public page) ──
+  function vlbSlot(team,state){
+    const name=team?team.name:null;
+    let inner;
+    if(!name||name==='TBD'){
+      inner='<span style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:.75rem">⚽</span>';
     } else {
-      if(m.leg1h!=null&&m.leg1a!=null){
-        scoreStr=m.leg1h+'–'+m.leg1a;
-        if(m.pk1h!=null) scoreStr+=' (PK '+m.pk1h+'–'+m.pk1a+')';
-      }
+      const t=tour.teams.find(x=>x.name===name);
+      const regT=t?getRegTeam(t):null;
+      const src=regT&&regT.logoFilename?GITHUB_LOGOS_BASE+regT.logoFilename:(regT&&regT.logoUrl?regT.logoUrl:null);
+      inner=src
+        ?'<img src="'+src+'" style="width:24px;height:24px;object-fit:contain" onerror="logoRetryInitial(this,\''+(name?name[0]:'?')+'\')">'
+        :'<span style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:.8rem;font-weight:800;color:var(--gold)">'+( name?name[0]:'?')+'</span>';
     }
-    return `<div style="background:var(--card2);border:1px solid ${m.done?'var(--gold)':'var(--border)'};border-radius:6px;padding:.35rem .45rem;font-size:.7rem;min-width:110px;max-width:130px">
-      <div style="padding:.18rem 0;border-bottom:1px solid var(--border);font-weight:${w1?'800':'500'};color:${w1?'var(--gold)':'inherit'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t1}${w1?' 🏆':''}</div>
-      <div style="padding:.18rem 0;font-weight:${w2?'800':'500'};color:${w2?'var(--gold)':'inherit'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t2}${w2?' 🏆':''}</div>
-      <div style="font-size:.58rem;color:var(--muted);text-align:center;margin-top:.15rem">${scoreStr}</div>
-    </div>`;
+    const border=state==='won'?'2px solid var(--gold)':state==='pending'?'2px solid var(--border2)':'2px solid var(--border)';
+    const glow=state==='won'?'box-shadow:0 0 10px rgba(201,168,76,.45);background:rgba(201,168,76,.08);':'';
+    const fade=state==='out'?'opacity:.32;filter:grayscale(1);':'';
+    return '<div style="width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--card2);flex-shrink:0;overflow:hidden;'+border+';'+glow+fade+'">'+inner+'</div>';
+  }
+  function vlbState(m,side){
+    if(!m||(!m.winner&&!m.done))return 'pending';
+    const name=side==='t1'?(m.t1?m.t1.name:null):(m.t2?m.t2.name:null);
+    return(name&&m.winner&&m.winner.name===name)?'won':'out';
+  }
+  function vlbMatch(m){
+    return '<div style="position:relative;flex:1;display:flex;flex-direction:row;justify-content:center;align-items:center;gap:8px">'+
+      vlbSlot(m.t1,vlbState(m,'t1'))+vlbSlot(m.t2,vlbState(m,'t2'))+
+    '</div>';
+  }
+  function vlbRound(matches,label,isLast,flipped){
+    const connectorHtml=isLast?'':'<div style="width:100%;display:flex;flex-direction:row;justify-content:space-around;padding:2px 0">'+
+      matches.map(function(){return '<div style="flex:1;position:relative"><div style="position:absolute;left:25%;right:25%;bottom:-9px;height:9px;border:2px solid var(--gold);border-top:none;border-radius:0 0 6px 6px;opacity:.5"></div></div>';}).join('')+'</div>';
+    const labelEl='<div style="font-family:\'Oswald\',sans-serif;font-size:.52rem;letter-spacing:1.5px;color:var(--gold);text-transform:uppercase;text-align:center;margin-bottom:.3rem;white-space:nowrap'+(flipped?';transform:scaleY(-1)':'')+'">'+label+'</div>';
+    return '<div style="display:flex;flex-direction:column;align-items:center;width:100%;margin-bottom:6px">'+
+      labelEl+
+      '<div style="width:100%;display:flex;flex-direction:row;justify-content:space-around;padding:6px 0">'+matches.map(vlbMatch).join('')+'</div>'+
+      connectorHtml+
+    '</div>';
   }
 
-  // Build column structure: [leftRounds..., finalRound, ...rightRoundsReversed]
-  // For 8 teams: QF(4m) → SF(2m) → Final(1m) → SF(2m) → QF(4m)
-  // Split each non-final round's matches: first half=left, second half=right
-  const finalRound=rounds[rounds.length-1]; // last round = Final
-  const preFinalRounds=rounds.slice(0,rounds.length-1); // QF, SF, etc.
+  const preFinalRounds=rounds.slice(0,rounds.length-1);
+  const finalRound=rounds[rounds.length-1];
+  const fm=finalRound.matches[0];
+  const champion=fm&&fm.winner?fm.winner:null;
+  const cupSrc=tour.winnerTrophyImg||'efh_cup.png';
 
-  // Left side columns (index 0..n-2), each takes first half of matches
-  // Right side columns (index n-2..0 reversed), each takes second half
-  // For 8 teams: preFinalRounds = [QF(4 matches), SF(2 matches)]
-  // Left: QF left 2, SF left 1 | Final 1 | SF right 1, QF right 2
-
-  function colLabel(name,align){
-    return `<div style="font-size:.58rem;color:var(--gold);font-family:'Anton',sans-serif;letter-spacing:1px;text-align:center;margin-bottom:.4rem;white-space:nowrap">${name}</div>`;
-  }
-
-  // Build left columns
-  let leftCols=preFinalRounds.map(r=>{
+  // Top half: first half of each round's matches
+  let topHtml=preFinalRounds.map((r,ri)=>{
     const half=Math.ceil(r.matches.length/2);
-    return {name:r.name,matches:r.matches.slice(0,half)};
-  });
-  // Build right columns (same rounds, second half, reversed order)
-  let rightCols=[...preFinalRounds].reverse().map(r=>{
+    return vlbRound(r.matches.slice(0,half),r.name,ri===preFinalRounds.length-1,false);
+  }).join('');
+
+  // Bottom half: second half (flipped)
+  let bottomHtml=preFinalRounds.map((r,ri)=>{
     const half=Math.ceil(r.matches.length/2);
-    return {name:r.name,matches:r.matches.slice(half)};
-  });
+    return vlbRound(r.matches.slice(half),r.name,ri===preFinalRounds.length-1,true);
+  }).join('');
 
-  // ── RESPONSIVE: fills screen width, no horizontal scroll ──
-  const colFlex=10, connFlex=1.5, centerFlex=16;
+  // Center: Final with BIG trophy flanked by the two finalists
+  const centerHtml=
+    '<div style="display:flex;flex-direction:column;align-items:center;padding:.6rem 0 1rem">'+
+      '<div style="font-family:\'Oswald\',sans-serif;font-size:.52rem;letter-spacing:2px;color:var(--gold);text-transform:uppercase;margin-bottom:.5rem">FINAL</div>'+
+      '<div style="display:flex;align-items:center;justify-content:center;gap:12px">'+
+        vlbSlot(fm?fm.t1:null,vlbState(fm,'t1'))+
+        '<div style="display:flex;flex-direction:column;align-items:center;gap:.2rem;min-width:70px">'+
+          '<img src="'+cupSrc+'" style="width:70px;height:auto;object-fit:contain;filter:drop-shadow(0 0 20px rgba(201,168,76,.7))" onerror="this.style.display=\'none\'">'+
+          (champion?'<div style="font-family:\'Anton\',sans-serif;font-size:.55rem;letter-spacing:2px;color:var(--gold);text-align:center;margin-top:.15rem">CHAMPION</div><div style="font-family:\'Oswald\',sans-serif;font-size:.5rem;letter-spacing:1px;color:var(--text);text-align:center">'+champion.name.toUpperCase()+'</div>':'')+
+        '</div>'+
+        vlbSlot(fm?fm.t2:null,vlbState(fm,'t2'))+
+      '</div>'+
+    '</div>';
 
-  function bConnector(dir){
-    const isRight=dir==='right';
-    return `<div style="flex:${connFlex};display:flex;flex-direction:column;justify-content:center;align-items:center;align-self:stretch;min-width:0">
-      <div style="flex:1;${isRight?'border-right':'border-left'}:2px solid rgba(212,175,55,.5);border-top:2px solid rgba(212,175,55,.5);${isRight?'border-radius:0 6px 0 0':'border-radius:6px 0 0 0'};width:50%;${isRight?'margin-right:-1px':'margin-left:-1px'}"></div>
-      <div style="width:100%;height:2px;background:rgba(212,175,55,.5)"></div>
-      <div style="flex:1;${isRight?'border-right':'border-left'}:2px solid rgba(212,175,55,.5);border-bottom:2px solid rgba(212,175,55,.5);${isRight?'border-radius:0 0 6px 0':'border-radius:0 0 0 6px'};width:50%;${isRight?'margin-right:-1px':'margin-left:-1px'}"></div>
-    </div>`;
-  }
-
-  function bCompactCard(m){
-    const t1=m.t1?m.t1.name:'TBD';
-    const t2=m.t2?m.t2.name:'TBD';
-    const isHA=m.legs===2;
-    const hasL1=m.leg1h!=null&&m.leg1a!=null;
-    const hasL2=m.leg2h!=null&&m.leg2a!=null;
-    const w1=m.winner&&m.winner.name===t1;
-    const w2=m.winner&&m.winner.name===t2;
-    // Score label: aggregate when both legs exist, L1 score when only leg1, TBC otherwise
-    let scoreLabel='–';
-    let subLabel='';
-    if(isHA){
-      if(hasL1&&hasL2){
-        const agg1=(m.leg1h||0)+(m.leg2a||0)+(m.et1h||0)+(m.et2a||0);
-        const agg2=(m.leg1a||0)+(m.leg2h||0)+(m.et1a||0)+(m.et2h||0);
-        scoreLabel=agg1+'–'+agg2;
-        if(m.pk2h!=null) subLabel='PK '+m.pk2h+'–'+m.pk2a;
-      } else if(hasL1){
-        scoreLabel=m.leg1h+'–'+m.leg1a;
-        subLabel='L1';
-      }
-    } else {
-      if(hasL1){
-        scoreLabel=m.leg1h+'–'+m.leg1a;
-        if(m.pk1h!=null) subLabel='PK '+m.pk1h+'–'+m.pk1a;
-      }
-    }
-    return `<div style="background:rgba(255,255,255,.05);border:1px solid ${m.done?'rgba(201,168,76,.6)':'var(--border)'};border-radius:6px;padding:.3rem .4rem;font-size:.68rem;width:100%;box-sizing:border-box">
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:2px;margin-bottom:.15rem">
-        <span style="font-weight:700;color:${w1?'var(--gold)':'var(--text)'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0">${t1}${w1?' 🏆':''}</span>
-        <span style="font-family:'Anton',sans-serif;color:${scoreLabel!=='–'?'var(--text)':'var(--muted)'};flex-shrink:0;font-size:.75rem;margin-left:2px">${scoreLabel}</span>
-      </div>
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:2px">
-        <span style="font-weight:700;color:${w2?'var(--gold)':'var(--text)'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0">${t2}${w2?' 🏆':''}</span>
-        <span style="font-family:'Anton',sans-serif;color:var(--muted);flex-shrink:0;font-size:.6rem;margin-left:2px">${subLabel}</span>
-      </div>
-      ${!m.done&&!m.winner?'<div style="font-size:.55rem;color:var(--muted);text-align:center;margin-top:.1rem">⏳</div>':''}
-    </div>`;
-  }
-
-  let bHtml=`<div style="width:100%;padding:.5rem 0 1rem;box-sizing:border-box">
-    <div style="display:flex;width:100%;align-items:center;box-sizing:border-box;padding:0 2px">`;
-
-  // LEFT columns
-  leftCols.forEach((col,ci)=>{
-    bHtml+=`<div style="flex:${colFlex};display:flex;flex-direction:column;gap:6px;min-width:0">
-      ${colLabel(col.name,'right')}
-      ${col.matches.map(m=>bCompactCard(m)).join('<div style="min-height:6px"></div>')}
-    </div>`;
-    bHtml+=bConnector('right');
-  });
-
-  // FINAL center
-  bHtml+=`<div style="flex:${centerFlex};display:flex;flex-direction:column;align-items:center;min-width:0;padding:0 2px">
-    <img src="efh_cup.png" style="width:100%;height:auto;max-height:45vw;object-fit:contain;filter:drop-shadow(0 0 20px rgba(212,175,55,0.9));display:block;margin:0 auto">
-    <div style="font-family:'Anton',sans-serif;font-size:clamp(.6rem,.9rem,1rem);letter-spacing:2px;color:var(--gold);text-align:center;margin:.2rem 0 .4rem;text-shadow:0 0 8px rgba(201,168,76,.6)">🏆 FINAL 🏆</div>
-    <div style="width:100%">${bCompactCard(finalRound.matches[0])}</div>
-    ${finalRound.matches[0].winner?`<div style="font-family:'Anton',sans-serif;font-size:clamp(.6rem,.8rem,1rem);color:var(--gold);text-align:center;margin-top:.3rem">🏆 ${finalRound.matches[0].winner.name}</div>`:''}
-  </div>`;
-
-  // RIGHT columns
-  rightCols.forEach((col,ci)=>{
-    bHtml+=bConnector('left');
-    bHtml+=`<div style="flex:${colFlex};display:flex;flex-direction:column;gap:6px;min-width:0">
-      ${colLabel(col.name,'left')}
-      ${col.matches.map(m=>bCompactCard(m)).join('<div style="min-height:6px"></div>')}
-    </div>`;
-  });
-
-  bHtml+=`</div></div>`;
+  let bHtml=
+    '<div style="display:flex;flex-direction:column;align-items:center;padding:.8rem .3rem 1rem;background:radial-gradient(circle at 50% 50%,rgba(201,168,76,.05),transparent 60%);border-top:1px solid var(--border);border-bottom:1px solid var(--border)">'+
+      (topHtml?'<div style="display:flex;flex-direction:column;width:100%;max-width:460px">'+topHtml+'</div>':'')+
+      centerHtml+
+      (bottomHtml?'<div style="display:flex;flex-direction:column;width:100%;max-width:460px;transform:scaleY(-1)">'+bottomHtml+'</div>':'')+
+    '</div>';
 
   // 3rd place
   if(thirdRound){
     const m3=thirdRound.matches[0];
-    bHtml+=`<div style="margin-top:.6rem;background:rgba(205,127,50,.08);border:1px solid rgba(205,127,50,.3);border-radius:8px;padding:.6rem .8rem">
+    const t1=m3.t1?m3.t1.name:'TBD'; const t2=m3.t2?m3.t2.name:'TBD';
+    const w=m3.winner?m3.winner.name:'';
+    bHtml+=`<div style="margin-top:.6rem;background:rgba(205,127,50,.08);border:1px solid rgba(205,127,50,.3);border-radius:8px;padding:.6rem .8rem;text-align:center">
       <div style="font-family:'Anton',sans-serif;font-size:.65rem;letter-spacing:2px;color:#cd7f32;margin-bottom:.4rem">🥉 3RD PLACE</div>
-      ${bMatchCard(m3,'center')}
-      ${m3.winner?`<div style="font-size:.6rem;color:#cd7f32;text-align:center;margin-top:.3rem">3rd: ${m3.winner.name}</div>`:''}
+      <div style="font-size:.75rem">${t1} <span style="color:var(--muted)">vs</span> ${t2}</div>
+      ${w?`<div style="font-size:.6rem;color:#cd7f32;margin-top:.3rem">3rd: ${w}</div>`:''}
     </div>`;
   }
 
   document.getElementById('bracketRounds').innerHTML=bHtml;
 
-  // ── Match cards for score entry ──
+  // ── Match cards for score entry (unchanged below) ──
   let cardsHtml='';
   tour.bracketRounds.forEach(round=>{
     const pendingOrActive=round.matches.filter(m=>m.t1&&m.t2);
@@ -4583,7 +4530,7 @@ function closeDrawAnimation(){
 .anim-match-score{font-family:'Anton',sans-serif;font-size:1rem;color:var(--gold);min-width:3.2rem;text-align:center;background:rgba(201,168,76,.12);border-radius:6px;padding:.1rem .3rem}
 .anim-match-team.winner-team{color:var(--gold2)}
 .anim-champ-name{font-family:'Anton',sans-serif;font-size:clamp(1.8rem,10vw,3.2rem);color:#f0d080;letter-spacing:3px;text-shadow:0 0 30px rgba(201,168,76,.9),0 0 70px rgba(240,208,128,.5);animation:championReveal 1s ease forwards;margin-top:.6rem}
-.anim-cup-img{width:120px;height:auto;object-fit:contain;animation:cupReveal .9s ease forwards,cupFloat 3.2s ease-in-out .9s infinite,cupGlow 3.2s ease-in-out .9s infinite}
+.anim-cup-img{width:180px;height:auto;object-fit:contain;animation:cupReveal .9s ease forwards,cupFloat 3.2s ease-in-out .9s infinite,cupGlow 3.2s ease-in-out .9s infinite}
 /* ── Group Stage Reveal animation styles ── */
 .anim-grp-label{font-family:'Anton',sans-serif;font-size:clamp(2.2rem,13vw,4rem);color:var(--gold);letter-spacing:6px;text-align:center;text-shadow:0 0 32px rgba(201,168,76,.85),0 0 80px rgba(201,168,76,.35);margin-bottom:.5rem}
 @keyframes grpFlash{0%{opacity:0;transform:scale(1.35);letter-spacing:14px}40%{opacity:1;transform:scale(1.04);letter-spacing:6px}70%{opacity:1;transform:scale(1);letter-spacing:6px}100%{opacity:1;transform:scale(1);letter-spacing:6px}}
