@@ -2999,7 +2999,7 @@ function renderBracket(){
       '<div style="display:flex;align-items:center;justify-content:center;gap:12px">'+
         vlbSlot(fm?fm.t1:null,vlbState(fm,'t1'))+
         '<div style="display:flex;flex-direction:column;align-items:center;gap:.2rem;min-width:70px">'+
-          '<img src="'+cupSrc+'" style="width:70px;height:auto;object-fit:contain;filter:drop-shadow(0 0 20px rgba(201,168,76,.7))" onerror="this.style.display=\'none\'">'+
+          '<img src="'+cupSrc+'" style="width:110px;height:auto;object-fit:contain;display:block;filter:none" onerror="this.style.display=\'none\'">'+
           (champion?'<div style="font-family:\'Anton\',sans-serif;font-size:.55rem;letter-spacing:2px;color:var(--gold);text-align:center;margin-top:.15rem">CHAMPION</div><div style="font-family:\'Oswald\',sans-serif;font-size:.5rem;letter-spacing:1px;color:var(--text);text-align:center">'+champion.name.toUpperCase()+'</div>':'')+
         '</div>'+
         vlbSlot(fm?fm.t2:null,vlbState(fm,'t2'))+
@@ -4530,7 +4530,7 @@ function closeDrawAnimation(){
 .anim-match-score{font-family:'Anton',sans-serif;font-size:1rem;color:var(--gold);min-width:3.2rem;text-align:center;background:rgba(201,168,76,.12);border-radius:6px;padding:.1rem .3rem}
 .anim-match-team.winner-team{color:var(--gold2)}
 .anim-champ-name{font-family:'Anton',sans-serif;font-size:clamp(1.8rem,10vw,3.2rem);color:#f0d080;letter-spacing:3px;text-shadow:0 0 30px rgba(201,168,76,.9),0 0 70px rgba(240,208,128,.5);animation:championReveal 1s ease forwards;margin-top:.6rem}
-.anim-cup-img{width:180px;height:auto;object-fit:contain;animation:cupReveal .9s ease forwards,cupFloat 3.2s ease-in-out .9s infinite,cupGlow 3.2s ease-in-out .9s infinite}
+.anim-cup-img{width:180px;height:auto;object-fit:contain;animation:cupReveal .9s ease forwards,cupFloat 3.2s ease-in-out .9s infinite}
 /* ── Group Stage Reveal animation styles ── */
 .anim-grp-label{font-family:'Anton',sans-serif;font-size:clamp(2.2rem,13vw,4rem);color:var(--gold);letter-spacing:6px;text-align:center;text-shadow:0 0 32px rgba(201,168,76,.85),0 0 80px rgba(201,168,76,.35);margin-bottom:.5rem}
 @keyframes grpFlash{0%{opacity:0;transform:scale(1.35);letter-spacing:14px}40%{opacity:1;transform:scale(1.04);letter-spacing:6px}70%{opacity:1;transform:scale(1);letter-spacing:6px}100%{opacity:1;transform:scale(1);letter-spacing:6px}}
@@ -4949,6 +4949,80 @@ function playJourneyAnim(tour){
 // Calls our own Netlify Function (/.netlify/functions/ai-assistant),
 // which holds the Gemini key server-side. No key ever touches this file.
 // ══════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════
+// AI NAVIGATION ENGINE
+// The AI can embed action tags in its reply to actually control
+// the page. Format: [[ACTION:tab=schedule]] or [[ACTION:scroll=playoffs]]
+// These are stripped from the displayed text and executed silently.
+// ══════════════════════════════════════════════════════════════
+function executeAiAction(action){
+  try{
+    const parts=action.split('=');
+    const cmd=parts[0].trim();
+    const val=(parts[1]||'').trim();
+    if(cmd==='tab'){
+      // Navigate to a dashboard tab
+      const tabMap={
+        'schedule':'schedule','fixtures':'schedule','fixture':'schedule',
+        'table':'table','standings':'table','groups':'table',
+        'results':'results','scores':'results',
+        'teams':'teams','squad':'teams','players':'teams',
+        'knockout':'playoffs','bracket':'playoffs','playoffs':'playoffs',
+        'rules':'rules','settings':'settings','setting':'settings',
+        'quickscore':'quickscore','quick':'quickscore','score':'quickscore'
+      };
+      const tabId=tabMap[val.toLowerCase()]||val.toLowerCase();
+      const tabEl=document.getElementById('tc-'+tabId);
+      if(tabEl){
+        showTab(tabId);
+        // Briefly highlight the tab button so user sees it changed
+        const btn=document.getElementById('tab-'+tabId);
+        if(btn){btn.style.transition='background .3s';btn.style.background='rgba(201,168,76,.25)';setTimeout(()=>btn.style.background='',1200);}
+        return true;
+      }
+    } else if(cmd==='scroll'){
+      // Scroll to a specific element by id or keyword
+      const scrollMap={
+        'bracket':'bracketDisplay','bracketdisplay':'bracketDisplay',
+        'wildcard':'wildcardRaceSection','wildcard_race':'wildcardRaceSection',
+        'health':'aiPanel','table':'tableView','fixtures':'fixtureList',
+        'results':'resultsView','teams':'teamsView'
+      };
+      const elId=scrollMap[val.toLowerCase()]||val;
+      const el=document.getElementById(elId);
+      if(el){el.scrollIntoView({behavior:'smooth',block:'start'});return true;}
+    } else if(cmd==='highlight'){
+      // Briefly flash a section to draw attention
+      const el=document.getElementById(val)||document.querySelector('[data-section="'+val+'"]');
+      if(el){
+        const orig=el.style.outline;
+        el.style.transition='outline .2s';
+        el.style.outline='2px solid var(--gold)';
+        el.scrollIntoView({behavior:'smooth',block:'nearest'});
+        setTimeout(()=>el.style.outline=orig,1800);
+        return true;
+      }
+    } else if(cmd==='open'){
+      // Open specific panels
+      if(val==='ai'||val==='chat'){if(!aiOpen)toggleAiChat();return true;}
+    }
+  }catch(e){}
+  return false;
+}
+
+function parseAndExecuteActions(text){
+  // Extract all [[ACTION:...]] tags from text, execute them, return clean text
+  const actionRe=/\[\[ACTION:([^\]]+)\]\]/g;
+  let match;
+  let actionCount=0;
+  while((match=actionRe.exec(text))!==null){
+    if(executeAiAction(match[1])) actionCount++;
+  }
+  // Return text with action tags stripped
+  const cleanText=text.replace(/\[\[ACTION:[^\]]+\]\]/g,'').replace(/\n{3,}/g,'\n\n').trim();
+  return {cleanText, actionCount};
+}
+
 var aiChatHistory=[]; // [{role:'user'|'assistant', text}]
 var aiOpen=false;
 var aiBusy=false;
@@ -5039,12 +5113,29 @@ function runHealthCheckAndGreet(){
   addAiMsg('assistant','Hi! I can answer questions about any tournament here, explain how a feature works, or help you figure out the right Swiss/Groups/League setup for your team count. What do you need?');
 }
 
-function addAiMsg(role,text){
-  aiChatHistory.push({role:role==='system'?'assistant':role,text:text});
+function addAiMsg(role,rawText){
+  let displayText=rawText;
+  let navigated=false;
+  if(role==='assistant'){
+    const result=parseAndExecuteActions(rawText);
+    displayText=result.cleanText;
+    navigated=result.actionCount>0;
+  }
+  aiChatHistory.push({role:role==='system'?'assistant':role,text:displayText});
   var msgs=document.getElementById('aiMsgs');
   var el=document.createElement('div');
-  el.className='ai-msg '+role;
-  el.textContent=text;
+  el.className='ai-msg '+(role==='system'?'assistant':role);
+  // Render **bold** markdown and line breaks
+  el.innerHTML=displayText
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+    .replace(/\n/g,'<br>');
+  if(navigated){
+    const chip=document.createElement('div');
+    chip.style.cssText='margin-top:.4rem;font-size:.58rem;color:var(--gold);opacity:.75;letter-spacing:.5px';
+    chip.textContent='↗ Navigated for you';
+    el.appendChild(chip);
+  }
   msgs.appendChild(el);
   msgs.scrollTop=msgs.scrollHeight;
 }
@@ -5052,6 +5143,31 @@ function addAiMsg(role,text){
 // Builds a compact text snapshot of every tournament for Gemini's context window
 function buildAiContext(){
   var lines=[];
+  // Current UI state
+  var activeTab=document.querySelector('.tab.active');
+  var activeTabName=activeTab?activeTab.textContent.trim():'unknown';
+  lines.push('USER IS CURRENTLY ON TAB: '+activeTabName);
+  var tour=getTour();
+  if(tour){
+    lines.push('ACTIVE TOURNAMENT: "'+tour.name+'" (format:'+tour.format+', teams:'+(tour.teams||[]).length+')');
+    // Group stage status
+    if(tour.format==='groups'){
+      var totalGroupMatches=(tour.matches||[]).filter(function(m){return !m.bracketMatch;}).length;
+      var doneGroupMatches=(tour.matches||[]).filter(function(m){return !m.bracketMatch&&m.done;}).length;
+      lines.push('GROUP STAGE: '+doneGroupMatches+'/'+totalGroupMatches+' matches played');
+      if(doneGroupMatches===totalGroupMatches&&totalGroupMatches>0) lines.push('GROUP STAGE: COMPLETE — ready to simulate bracket');
+    }
+    // Bracket status
+    if(tour.bracketRounds&&tour.bracketRounds.length){
+      var finalRound=tour.bracketRounds[tour.bracketRounds.length-1];
+      var fm=finalRound&&finalRound.matches&&finalRound.matches[0];
+      lines.push('BRACKET: seeded, '+(fm&&fm.winner?'CHAMPION: '+fm.winner.name:'Final not played yet'));
+    } else {
+      lines.push('BRACKET: not yet simulated');
+    }
+  }
+  lines.push('');
+  // All tournaments
   (db.tournaments||[]).forEach(function(t){
     var champ=getChampion(t);
     lines.push('• "'+t.name+'" ('+(t.season||'no season')+') — format:'+t.format+', status:'+(t.status||'active')+', teams:'+(t.teams||[]).length+', league matches done:'+(t.matches||[]).filter(function(m){return m.done;}).length+'/'+(t.matches||[]).length+(t.format==='swiss'?', swiss rounds:'+(t.swissRounds||'?')+', autoQual:'+(t.swissAutoQual||0)+', playoffAdv:'+(t.swissPlayoffAdv||0):'')+(t.format==='groups'?', groups:'+(t.numGroups||'?')+', advPerGroup:'+(t.groupAdv||2)+', best3rdWildcards:'+(t.groupThirdAdv||0):'')+(champ?', CHAMPION: '+champ.name:', no champion yet'));
@@ -5062,29 +5178,59 @@ function buildAiContext(){
   return lines.join('\n');
 }
 
-var AI_SYSTEM_PROMPT = `You are the in-app assistant for "Elite Football Hub" (EFH), an admin dashboard for running eFootball tournaments (Swiss, Groups, and League formats, with a knockout bracket after).
+var AI_SYSTEM_PROMPT = `You are the in-app assistant for "Elite Football Hub" (EFH) — an admin dashboard for running eFootball tournaments (Swiss, Groups, and League formats, with a knockout bracket after).
 
-You help the ONE admin who runs this dashboard. Be concise, concrete, and always give exact navigation steps (tab names, button labels) rather than vague advice — this person is not a developer.
+You help the ONE admin who runs this dashboard. Be concise, concrete, and action-oriented.
 
-Key features and where they live:
-- Tournament list (home screen): tap "+ CREATE NEW TOURNAMENT" to start the wizard. Tap any existing tournament card to open its dashboard.
-- Wizard steps: 1) Name 2) Format (League/Groups/Swiss) + format-specific settings 3) Playoff rules (how many advance, bracket size) 4) Register Teams — has a "Pick from Registry" dropdown + ADD FROM REGISTRY button, plus manual add, plus a ✕ to remove a team before finishing 5) Confirm & Launch.
-- Dashboard tabs per tournament: ⚡ Quick Score (enter match results fast), 📅 Schedule/Fixtures, then sub-tabs for Table, Results, Fixtures, Knockout/Playoffs, Teams, Goals, Rules, ⚙️ Settings.
-- Teams tab: "➕ Add Team" card has a registry dropdown + manual entry. Below it is the permanent Teams Registry with a ✏️ edit and 🗑 delete button per team (deleting only removes from registry, not from tournaments already using that team).
-- Knockout/Playoffs tab: for Swiss format, a Playoff Round (bubble teams) must fully complete before the Knockout Bracket Setup card even appears — this is intentional, it prevents building the bracket with the wrong teams. "🎲 Simulate Bracket" builds/fills the bracket once ready.
-- Live Show Animations card (inside the bracket/playoffs area): "🎬 PLAY WINNER REVEAL" and "🏟️ PLAY TOURNAMENT JOURNEY" — only enabled once the Final has a decided winner. They play instantly full-screen on this device (for screen recording) and also update the public page.
-- Winner Trophy Image + 📺 Ticker toggle: uploads the champion's trophy photo and toggles a scrolling banner on the public site.
-- Settings tab: "🏁 Past Seasons" toggle ("Tournament Finished") moves a tournament to the public Past Seasons tab. "🔴 Danger Zone" has Reset Results and Delete Tournament.
-- ✏️ pencil icon next to the tournament title (top of dashboard) renames the tournament.
+━━━ NAVIGATION POWER ━━━
+You can navigate the page for the user by embedding action tags in your reply. These are invisible to the user — the page executes them silently and shows a "↗ Navigated for you" indicator.
 
-Format rules you should reason about when asked "how many teams do I need":
-- League: any number of teams works (round robin, byes if odd), admin picks how many advance to the bracket — that number must be 2, 4, 8, or 16.
-- Groups: teams are split into groups manually; top N per group advance automatically; (number of groups × N advancing per group) must total 2, 4, 8, or 16. Optionally, a number of "best 3rd-place" wildcard teams can also advance (Euro 2020/2024 style) — these are the highest-ranked teams that finished 3rd (or whichever place is just below the auto-qualify cutoff) across all groups, ranked against each other by points/goal difference/goals scored. At most one such wildcard can come from each group. The final bracket size is (groups × advPerGroup) + best3rdWildcards, and that total must still be 2, 4, 8, or 16.
-- Swiss: teams play N match days (Swiss pairing). swissAutoQual teams qualify directly from the table. The next swissPlayoffTeams teams (by rank) play a playoff round; swissPlayoffAdv of them advance. The bracket size is ALWAYS autoQual + playoffAdv, and that number MUST be 2, 4, 8, or 16, or the bracket cannot be built. Always check this math when asked about Swiss setup.
+Action tag format: [[ACTION:command=value]]
 
-You'll be given a live snapshot of the admin's actual tournaments and any detected issues before each question — use it to give specific, current answers (mention tournament names, exact counts) rather than generic ones. If the snapshot shows a detected issue relevant to the question, mention it and say exactly how to fix it using the navigation steps above.
+Available commands:
+- [[ACTION:tab=schedule]] — switch to the Fixtures/Schedule tab
+- [[ACTION:tab=table]] — switch to the Table/Standings tab  
+- [[ACTION:tab=results]] — switch to the Results tab
+- [[ACTION:tab=teams]] — switch to the Teams tab
+- [[ACTION:tab=playoffs]] — switch to the Knockout/Bracket tab
+- [[ACTION:tab=rules]] — switch to the Rules tab
+- [[ACTION:tab=settings]] — switch to the Settings tab
+- [[ACTION:tab=quickscore]] — switch to the Quick Score tab
+- [[ACTION:scroll=bracket]] — scroll to the bracket visual
+- [[ACTION:scroll=wildcard]] — scroll to the wildcard race table
+- [[ACTION:highlight=bracketDisplay]] — flash-highlight the bracket
 
-Keep answers under ~120 words unless the question genuinely needs a longer walkthrough.`;
+WHEN TO USE navigation:
+- User says "show me", "take me to", "open", "go to", "where is" → navigate + explain
+- User asks about something on a different tab → navigate there, then answer
+- User asks "how do I enter scores" → navigate to quickscore tab + explain
+- User asks about the bracket → navigate to playoffs tab
+- User asks about standings/table → navigate to table tab
+Always navigate FIRST (tag at start of reply), then answer. Never ask "do you want me to take you there?" — just do it.
+
+━━━ TABS & FEATURES ━━━
+- **Quick Score** (⚡): fastest way to enter match results — shows all pending matches
+- **Schedule** (📅): view all fixtures organised by round, generate fixtures
+- **Table** (📊): live standings per group, wildcard race table (Groups format)
+- **Results** (✅): full match history with scores
+- **Teams** (👥): manage teams, assign groups, pick logos from registry
+- **Knockout** (⚡): simulate bracket, enter knockout results, play animations
+- **Settings** (⚙️): rename tournament, past seasons toggle, danger zone
+
+━━━ TOURNAMENT CONTEXT ━━━
+You receive live data before each question — the user's current tab, active tournament status, bracket state, group stage progress. Use it to give specific answers (mention tournament names, exact counts, whether the bracket is ready yet).
+
+━━━ FORMAT RULES ━━━
+- **League**: any team count, round-robin, advance count must be 2/4/8/16
+- **Groups**: (groups × advancing) + best-3rd wildcards must equal 2/4/8/16. EFH Season 2 uses 6 groups × 4 teams, top 2 auto-qualify (12 teams) + best 4 third-place wildcards = 16 (Euro 2024 format)
+- **Swiss**: autoQual + playoffAdv must equal 2/4/8/16
+
+━━━ STYLE ━━━
+- Keep answers under 100 words unless a walkthrough is genuinely needed
+- Use **bold** for tab names and button labels
+- Never say "I can't navigate" — you can and should
+- Be direct, skip filler phrases like "Great question!"`;
+
 
 function sendAiMessage(){
   if(aiBusy) return;
