@@ -2914,7 +2914,7 @@ function playJourneyAnim(tour,done){
 
   if(tour.format==='groups'){
     var grpRounds={};
-    (tour.matches||[]).filter(function(m){return m.done&&m.round;}).forEach(function(m){
+    (tour.matches||[]).filter(function(m){return m.done&&m.round&&matchScoreParts(m);}).forEach(function(m){
       var rnd=m.round.split('·')[0].trim();
       if(!grpRounds[rnd])grpRounds[rnd]=[];
       grpRounds[rnd].push(m);
@@ -2924,10 +2924,12 @@ function playJourneyAnim(tour,done){
       var rMs=grpRounds[rnd];
       var chunks=Math.ceil(rMs.length/GRP_CHUNK)||1;
       for(var gc=0;gc<chunks;gc++){
+        var chunkMs=rMs.slice(gc*GRP_CHUNK,(gc+1)*GRP_CHUNK);
+        if(!chunkMs.length) continue;
         slides.push({
           type:'group_round',
           rnd:rnd+(chunks>1?' ('+(gc+1)+'/'+chunks+')':''),
-          matches:rMs.slice(gc*GRP_CHUNK,(gc+1)*GRP_CHUNK)
+          matches:chunkMs
         });
       }
     });
