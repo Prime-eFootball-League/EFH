@@ -709,6 +709,26 @@ td.pts{font-family:'Anton',sans-serif;font-size:1.1rem;color:var(--gold);text-sh
         </div>
       </div>
 
+      <!-- Golden Boot Upload Card -->
+      <div class="card" style="padding:.8rem;margin-top:.6rem" id="goldenBootUploadCard">
+        <div class="card-title" style="margin-bottom:.5rem">⚽ Golden Boot Trophy Image</div>
+        <div class="info" style="margin-bottom:.7rem">Upload the golden boot / top scorer trophy photo. It will appear on the Golden Boot slide of the Tournament Journey animation. Leave blank to show text only.</div>
+        <div id="goldenBootPreviewArea" style="display:none;margin-bottom:.7rem;text-align:center">
+          <img id="goldenBootPreviewImg" style="max-height:180px;object-fit:contain;border-radius:8px;border:1px solid var(--gold);filter:drop-shadow(0 0 16px rgba(212,175,55,0.7))" src="" alt="Golden Boot">
+          <div style="margin-top:.5rem">
+            <button class="del-btn" style="background:var(--red);color:#fff;padding:.3rem .9rem;border-radius:6px;font-size:.75rem;font-weight:800" onclick="deleteGoldenBootImage()">🗑 Remove Golden Boot Image</button>
+          </div>
+        </div>
+        <div id="goldenBootUploadArea">
+          <label style="display:flex;flex-direction:column;align-items:center;gap:.5rem;background:var(--card2);border:2px dashed var(--border);border-radius:8px;padding:1.2rem;cursor:pointer;transition:border-color .2s" 
+            onmouseover="this.style.borderColor='var(--gold)'" onmouseout="this.style.borderColor='var(--border)'">
+            <span style="font-size:2rem">👟</span>
+            <span style="font-size:.78rem;color:var(--muted);text-align:center">Tap to upload golden boot image<br><span style="font-size:.65rem">JPG or PNG · Max 3MB</span></span>
+            <input type="file" accept="image/jpeg,image/png,image/webp" style="display:none" onchange="handleGoldenBootUpload(event)">
+          </label>
+        </div>
+      </div>
+
       <!-- Live Show Animations Card -->
       <div class="card" style="padding:.8rem;margin-top:.6rem" id="liveAnimCard">
         <div class="card-title" style="margin-bottom:.5rem">🎬 Live Show Animations</div>
@@ -716,7 +736,7 @@ td.pts{font-family:'Anton',sans-serif;font-size:1.1rem;color:var(--gold);text-sh
         <button class="btn-full btn-gold" id="groupRevealAnimBtn" style="margin-bottom:.55rem;display:none" onclick="triggerGroupRevealAnim()">🏟️ PLAY GROUP STAGE DRAW</button>
         <button class="btn-full btn-gold" id="bracketSeedAnimBtn" style="margin-bottom:.55rem;display:none" onclick="triggerBracketSeedAnim()">🏟️ PLAY BRACKET DRAW</button>
         <button class="btn-full btn-gold" id="winnerAnimBtn" style="margin-bottom:.55rem" onclick="triggerWinnerAnim()" disabled>🎬 PLAY WINNER REVEAL</button>
-        <button class="btn-full btn-gold" id="journeyAnimBtn" onclick="triggerJourneyAnim()" disabled>🏟️ PLAY TOURNAMENT JOURNEY (R16 → FINAL)</button>
+        <button class="btn-full btn-gold" id="journeyAnimBtn" onclick="triggerJourneyAnim()" disabled>🏟️ PLAY EFH LEGENDS RECAP</button>
       </div>
 
       <div id="bracketMatchCards"></div>
@@ -2872,6 +2892,7 @@ function updateWinnerTickerBtn(tour){
   btn.style.color=on?'#000':'var(--muted)';
   // Also sync trophy preview
   updateTrophyPreview(tour);
+  updateGoldenBootPreview(tour);
   updateLiveAnimButtons(tour);
 }
 
@@ -2912,6 +2933,46 @@ function deleteTrophyImage(){
     sdb();
     updateTrophyPreview(tour);
     toast('Trophy image removed');
+  }).catch(function(){});
+}
+
+function updateGoldenBootPreview(tour){
+  const preview=document.getElementById('goldenBootPreviewArea');
+  const upload=document.getElementById('goldenBootUploadArea');
+  const img=document.getElementById('goldenBootPreviewImg');
+  if(!preview||!upload||!img)return;
+  if(tour&&tour.goldenBootImg){
+    img.src=tour.goldenBootImg;
+    preview.style.display='block';
+    upload.style.display='none';
+  } else {
+    preview.style.display='none';
+    upload.style.display='block';
+  }
+}
+
+function handleGoldenBootUpload(e){
+  const file=e.target.files[0];
+  if(!file)return;
+  if(file.size>3*1024*1024){toast('Image too large — max 3MB',true);return;}
+  const tour=getTour();if(!tour)return;
+  const reader=new FileReader();
+  reader.onload=function(ev){
+    tour.goldenBootImg=ev.target.result;
+    sdb();
+    updateGoldenBootPreview(tour);
+    toast('⚽ Golden Boot image uploaded!');
+  };
+  reader.readAsDataURL(file);
+}
+
+function deleteGoldenBootImage(){
+  const tour=getTour();if(!tour)return;
+  showConfirm('This will remove the golden boot image from the Tournament Journey animation.',{title:'REMOVE GOLDEN BOOT IMAGE?',icon:'⚽',confirmLabel:'REMOVE',danger:false,warning:true}).then(function(){
+    tour.goldenBootImg=null;
+    sdb();
+    updateGoldenBootPreview(tour);
+    toast('Golden Boot image removed');
   }).catch(function(){});
 }
 
@@ -4499,6 +4560,7 @@ function closeDrawAnimation(){
 <div class="anim-overlay" id="animOverlay" style="display:none">
   <div class="anim-fx" id="animFx"></div>
   <div class="anim-content" id="animContent"></div>
+  <button class="anim-mute" id="animMuteBtn" onclick="toggleSfxMute()">🔊</button>
   <button class="anim-skip" id="animSkipBtn" onclick="skipCurrentAnim()">Close ✕</button>
 </div>
 <style>
@@ -4507,6 +4569,9 @@ function closeDrawAnimation(){
 .anim-content{position:relative;z-index:2;text-align:center;padding:1.4rem 1.2rem;max-width:94vw;width:100%}
 .anim-skip{position:absolute;top:1rem;right:1rem;z-index:5;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.2);color:#b0b8d0;font-family:'Oswald',sans-serif;font-size:.7rem;letter-spacing:1px;font-weight:700;padding:.4rem .8rem;border-radius:20px;cursor:pointer}
 .anim-skip:active{background:rgba(255,255,255,.18)}
+.anim-mute{position:absolute;top:1rem;right:5.6rem;z-index:5;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.2);color:#b0b8d0;font-size:.9rem;padding:.4rem .7rem;border-radius:20px;cursor:pointer;line-height:1}
+.anim-mute:active{background:rgba(255,255,255,.18)}
+.anim-boot-img{width:130px;height:auto;object-fit:contain;animation:cupReveal .9s ease forwards,cupFloat 3.2s ease-in-out .9s infinite;filter:drop-shadow(0 0 18px rgba(255,214,0,.7))}
 .confetti-piece{position:absolute;top:-12px;border-radius:1px;animation:confettiFall linear forwards}
 @keyframes confettiFall{0%{transform:translateY(-10px) rotate(0deg);opacity:1}85%{opacity:1}100%{transform:translateY(118vh) rotate(680deg);opacity:.15}}
 .spark{position:absolute;width:5px;height:5px;border-radius:50%;animation:sparkFly .9s ease-out forwards}
@@ -4555,7 +4620,97 @@ function clearAnimTimers(){
   if(_animFxInterval){clearInterval(_animFxInterval);_animFxInterval=null;}
 }
 function animAfter(ms,fn){ var id=setTimeout(fn,ms); _animTimers.push(id); return id; }
-function skipCurrentAnim(){ if(_animDoneFn) _animDoneFn(); }
+function skipCurrentAnim(){ stopAllSfx(); if(_animDoneFn) _animDoneFn(); }
+
+// ── Sound Effects Engine (pure Web Audio API — no external audio files) ──
+var _audioCtx=null;
+var _sfxMuted=(localStorage.getItem('efhSfxMuted')==='1');
+var _activeSfxNodes=[];
+var _chantInterval=null;
+function getAudioCtx(){
+  if(_sfxMuted) return null;
+  if(!_audioCtx){
+    try{ _audioCtx=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){ return null; }
+  }
+  if(_audioCtx.state==='suspended') _audioCtx.resume();
+  return _audioCtx;
+}
+function toggleSfxMute(){
+  _sfxMuted=!_sfxMuted;
+  localStorage.setItem('efhSfxMuted',_sfxMuted?'1':'0');
+  if(_sfxMuted) stopAllSfx();
+  var btn=document.getElementById('animMuteBtn');
+  if(btn) btn.textContent=_sfxMuted?'🔇':'🔊';
+}
+function stopStadiumChantSfx(){ if(_chantInterval){clearInterval(_chantInterval);_chantInterval=null;} }
+function stopAllSfx(){
+  stopStadiumChantSfx();
+  _activeSfxNodes.forEach(function(n){ try{n.stop();}catch(e){} });
+  _activeSfxNodes=[];
+}
+function sfxTone(freq,dur,type,vol,delay,glideTo){
+  var ctx=getAudioCtx(); if(!ctx) return;
+  var t0=ctx.currentTime+(delay||0);
+  var osc=ctx.createOscillator(), gain=ctx.createGain();
+  osc.type=type||'sine'; osc.frequency.setValueAtTime(freq,t0);
+  if(glideTo) osc.frequency.exponentialRampToValueAtTime(glideTo,t0+dur);
+  gain.gain.setValueAtTime(0,t0);
+  gain.gain.linearRampToValueAtTime(vol||.15,t0+.02);
+  gain.gain.exponentialRampToValueAtTime(.001,t0+dur);
+  osc.connect(gain); gain.connect(ctx.destination);
+  osc.start(t0); osc.stop(t0+dur+.05);
+  _activeSfxNodes.push(osc);
+}
+function sfxNoiseBurst(dur,vol,delay,filterFreq,filterType){
+  var ctx=getAudioCtx(); if(!ctx) return;
+  var t0=ctx.currentTime+(delay||0);
+  var bufSize=Math.max(1,Math.floor(ctx.sampleRate*dur));
+  var buf=ctx.createBuffer(1,bufSize,ctx.sampleRate);
+  var data=buf.getChannelData(0);
+  for(var i=0;i<bufSize;i++) data[i]=Math.random()*2-1;
+  var src=ctx.createBufferSource(); src.buffer=buf;
+  var filt=ctx.createBiquadFilter(); filt.type=filterType||'bandpass'; filt.frequency.value=filterFreq||1200;
+  var gain=ctx.createGain();
+  gain.gain.setValueAtTime(0,t0);
+  gain.gain.linearRampToValueAtTime(vol||.2,t0+.01);
+  gain.gain.exponentialRampToValueAtTime(.001,t0+dur);
+  src.connect(filt); filt.connect(gain); gain.connect(ctx.destination);
+  src.start(t0); src.stop(t0+dur+.05);
+  _activeSfxNodes.push(src);
+}
+function playWhistleSfx(){ sfxTone(1800,.32,'sine',.11,0,2400); sfxTone(1800,.32,'sine',.11,.4,2400); }
+function playFanfareSfx(){ [523,659,784,1046].forEach(function(f,i){ sfxTone(f,.35,'triangle',.13,i*.13); }); }
+function playDingSfx(){ sfxTone(1046,.5,'sine',.12,0); sfxTone(1568,.5,'sine',.08,.05); }
+function playClangSfx(){ sfxTone(180,.5,'triangle',.16,0,90); sfxNoiseBurst(.3,.1,0,300); }
+function playCrashSfx(){ sfxNoiseBurst(.5,.22,0,2200); sfxTone(90,.4,'sawtooth',.15,0); }
+function playCameraClickSfx(delay){ sfxNoiseBurst(.04,.18,delay||0,3800,'highpass'); }
+function playChimeSfx(){ sfxTone(660,.6,'sine',.1,0); sfxTone(880,.6,'sine',.08,.15); }
+function playDrumrollSfx(durationMs){
+  var ctx=getAudioCtx(); if(!ctx) return;
+  var steps=Math.floor(durationMs/70);
+  for(var i=0;i<steps;i++){
+    var t=i*0.07, vol=.05+(i/steps)*.15;
+    sfxNoiseBurst(.06,vol,t,220);
+  }
+  sfxNoiseBurst(.45,.28,durationMs/1000,140);
+  sfxTone(90,.55,'sine',.22,durationMs/1000);
+}
+function playTensionRiseSfx(durationMs){
+  sfxTone(80,durationMs/1000,'sawtooth',.06,0,180);
+}
+function playCrowdRoarSfx(){
+  sfxNoiseBurst(3.5,.22,0,700,'bandpass');
+  sfxNoiseBurst(3.2,.18,.05,1400,'bandpass');
+  sfxTone(140,1.2,'sawtooth',.1,0,90);
+  [0,.15].forEach(function(d){ sfxTone(392,.6,'sawtooth',.09,d); sfxTone(523,.6,'sawtooth',.07,d); });
+}
+function startStadiumChantSfx(){
+  stopStadiumChantSfx();
+  var beat=0;
+  function pulse(){ sfxNoiseBurst(.09,.14,0,900,'bandpass'); if(beat%2===0) sfxTone(196,.18,'square',.05,.02); beat++; }
+  pulse();
+  _chantInterval=setInterval(pulse,480);
+}
 var FX_COLORS=['#c9a84c','#f0d080','#00e87a','#4db8ff','#ff3b5c','#ffffff'];
 function spawnConfettiBurst(count){
   var fx=document.getElementById('animFx'); if(!fx) return;
@@ -4602,9 +4757,13 @@ function openAnimOverlay(){
   document.getElementById('animFx').innerHTML='';
   ov.style.display='flex';
   document.body.style.overflow='hidden';
+  var mb=document.getElementById('animMuteBtn');
+  if(mb) mb.textContent=_sfxMuted?'🔇':'🔊';
+  getAudioCtx(); // warm up on user gesture
 }
 function closeAnimOverlay(){
   clearAnimTimers();
+  stopAllSfx();
   document.getElementById('animOverlay').style.display='none';
   document.getElementById('animFx').innerHTML='';
   document.body.style.overflow='';
@@ -4758,6 +4917,7 @@ function playWinnerRevealAnim(tour){
     '<div class="anim-champ-name">'+champ.name+'</div>'+
     '<div class="anim-sub anim-line" style="animation-delay:.7s">Congratulations on an unforgettable tournament! 🎉</div>';
   startCelebrationFx();
+  playCrowdRoarSfx();
   animAfter(9000,closeAnimOverlay);
 }
 function playJourneyAnim(tour){
@@ -4765,79 +4925,371 @@ function playJourneyAnim(tour){
   if(!champ){toast('Final not decided yet',true);return;}
   openAnimOverlay();
   _animDoneFn=closeAnimOverlay;
+  var tname=tour.name||'EFH';
   var mainRounds=(tour.bracketRounds||[]).filter(function(r){return r.matches[0]&&!r.matches[0].is3rd;});
+
+  // ── Compute stats from ALL matches (group stage + knockout) ──
+  var allMatches=(tour.matches||[]).concat(
+    (tour.bracketRounds||[]).reduce(function(acc,r){return acc.concat(r.matches);},[]));
+  var done=allMatches.filter(function(m){return m.done&&m.leg1h!=null;});
+  var totalGoals=done.reduce(function(acc,m){return acc+(m.leg1h||0)+(m.leg1a||0)+(m.et1h||0)+(m.et1a||0);},0);
   var totalTeams=(tour.teams||[]).length;
   var totalMatches=countTotalMatches(tour);
-  var tname=tour.name||'EFH';
-  var slides=[];
-  slides.push({type:'intro'});
-  mainRounds.forEach(function(r){
-    if(r.matches.some(function(m){return m.t1&&m.t2&&matchScoreParts(m);})) slides.push({type:'round',round:r});
+
+  // Golden boot — from goal log
+  var scorerMap={};
+  allMatches.forEach(function(m){(m.goals||[]).forEach(function(g){
+    if(g.scorer){if(!scorerMap[g.scorer])scorerMap[g.scorer]={goals:0,team:g.team||''};scorerMap[g.scorer].goals++;}
+  });});
+  var topScorer=Object.entries(scorerMap).sort(function(a,b){return b[1].goals-a[1].goals;})[0]||null;
+
+  // Best attack/defense per team
+  var teamStats={};
+  (tour.teams||[]).forEach(function(t){teamStats[t.name]={name:t.name,scored:0,conceded:0,cleanSheets:0,coach:t.coach||''};});
+  done.forEach(function(m){
+    var h=m.homeName||(m.t1&&m.t1.name)||null;
+    var a=m.awayName||(m.t2&&m.t2.name)||null;
+    var hs=(m.leg1h||0)+(m.et1h||0), as=(m.leg1a||0)+(m.et1a||0);
+    if(h&&teamStats[h]){teamStats[h].scored+=hs;teamStats[h].conceded+=as;if(as===0)teamStats[h].cleanSheets++;}
+    if(a&&teamStats[a]){teamStats[a].scored+=as;teamStats[a].conceded+=hs;if(hs===0)teamStats[a].cleanSheets++;}
   });
-  slides.push({type:'stats'});
+  var tsArr=Object.values(teamStats);
+  var bestAttack=[...tsArr].sort(function(a,b){return b.scored-a.scored;})[0]||null;
+  var bestDefense=[...tsArr].sort(function(a,b){
+    if(a.conceded!==b.conceded)return a.conceded-b.conceded;
+    return b.cleanSheets-a.cleanSheets;
+  })[0]||null;
+
+  // Biggest win(s) — collect all tied for max margin
+  var maxMargin=0;
+  done.forEach(function(m){maxMargin=Math.max(maxMargin,Math.abs((m.leg1h||0)+(m.et1h||0)-(m.leg1a||0)-(m.et1a||0)));});
+  var biggestWins=[];
+  done.forEach(function(m){
+    var hs=(m.leg1h||0)+(m.et1h||0), as=(m.leg1a||0)+(m.et1a||0);
+    if(Math.abs(hs-as)===maxMargin&&maxMargin>=2){
+      var hTeam=m.homeName||(m.t1&&m.t1.name)||'?';
+      var aTeam=m.awayName||(m.t2&&m.t2.name)||'?';
+      var hCoach='',aCoach='';
+      var ht=(tour.teams||[]).find(function(t){return t.name===hTeam;});
+      var at=(tour.teams||[]).find(function(t){return t.name===aTeam;});
+      if(ht)hCoach=ht.coach||''; if(at)aCoach=at.coach||'';
+      biggestWins.push({home:hTeam,away:aTeam,hs:hs,as:as,margin:maxMargin,hCoach:hCoach,aCoach:aCoach,round:m.round||''});
+    }
+  });
+
+  // Champion's full match log
+  var champMatches=done.filter(function(m){
+    var h=m.homeName||(m.t1&&m.t1.name)||'';
+    var a=m.awayName||(m.t2&&m.t2.name)||'';
+    return h===champ.name||a===champ.name;
+  });
+  var cW=0,cD=0,cL=0,cGF=0,cGA=0;
+  var cBigWin=null,cBigWinMargin=0,cBigLoss=null,cBigLossMargin=0;
+  champMatches.forEach(function(m){
+    var isHome=(m.homeName||(m.t1&&m.t1.name)||'')===champ.name;
+    var hs=(m.leg1h||0)+(m.et1h||0), as=(m.leg1a||0)+(m.et1a||0);
+    var gf=isHome?hs:as, ga=isHome?as:hs;
+    var opp=isHome?(m.awayName||(m.t2&&m.t2.name)||'?'):(m.homeName||(m.t1&&m.t1.name)||'?');
+    cGF+=gf; cGA+=ga;
+    var margin=gf-ga;
+    if(m.winner&&m.winner.name===champ.name){cW++;if(margin>cBigWinMargin){cBigWinMargin=margin;cBigWin={opp:opp,gf:gf,ga:ga,round:m.round||''};}}
+    else if(!m.winner||m.winner.name!==champ.name){
+      if(gf===ga)cD++;
+      else{cL++;if((ga-gf)>cBigLossMargin){cBigLossMargin=ga-gf;cBigLoss={opp:opp,gf:gf,ga:ga,round:m.round||''};}}
+    }
+  });
+  // Hardest opponent: closest win margin or needed ET/PK
+  var hardest=null,hardestScore=9999;
+  champMatches.forEach(function(m){
+    if(m.winner&&m.winner.name===champ.name){
+      var isHome=(m.homeName||(m.t1&&m.t1.name)||'')===champ.name;
+      var hs=(m.leg1h||0)+(m.et1h||0), as=(m.leg1a||0)+(m.et1a||0);
+      var margin=isHome?hs-as:as-hs;
+      var opp=isHome?(m.awayName||(m.t2&&m.t2.name)||'?'):(m.homeName||(m.t1&&m.t1.name)||'?');
+      var score=margin+(m.pk1h!=null?-0.5:0); // PK win = harder
+      if(score<hardestScore){hardestScore=score;hardest=opp;}
+    }
+  });
+  var champCoach='';
+  var champTourTeam=(tour.teams||[]).find(function(t){return t.name===champ.name;});
+  if(champTourTeam)champCoach=champTourTeam.coach||'';
+
+  // Defending champion detection
+  var allTours=db.tournaments||[];
+  var sortedPast=allTours.filter(function(t){return t.id!==tour.id&&t.status==='finished';})
+    .sort(function(a,b){return(b.createdAt||0)-(a.createdAt||0);});
+  var defendingChamp=sortedPast.length?getChampion(sortedPast[0]):null;
+  var hallOfChamps=sortedPast.map(function(t){return{name:t.name,champ:getChampion(t),id:t.id};}).filter(function(x){return x.champ;}).reverse();
+  var isDefending=defendingChamp&&defendingChamp.name===champ.name;
+
+  // ── BUILD SLIDES ──
+  var slides=[];
+
+  // 1. Champions Recognition intro
+  slides.push({type:'cr_intro'});
+
+  // 2. Group stage round recaps (group matches only)
+  if(tour.format==='groups'){
+    var grpRounds={};
+    (tour.matches||[]).filter(function(m){return m.done&&m.round;}).forEach(function(m){
+      var rnd=m.round.split('·')[0].trim();
+      if(!grpRounds[rnd])grpRounds[rnd]=[];
+      grpRounds[rnd].push(m);
+    });
+    Object.keys(grpRounds).sort().forEach(function(rnd){
+      slides.push({type:'group_round',rnd:rnd,matches:grpRounds[rnd]});
+    });
+  }
+
+  // 3. Knockout round recaps
+  mainRounds.forEach(function(r){
+    if(r.matches.some(function(m){return m.t1&&m.t2&&matchScoreParts(m);}))
+      slides.push({type:'round',round:r});
+  });
+
+  // 4. Stats
+  slides.push({type:'stats_numbers',totalTeams:totalTeams,totalMatches:totalMatches,totalGoals:totalGoals});
+
+  // 5. Golden boot
+  if(topScorer){
+    var bt=(tour.teams||[]).find(function(t){return t.name===topScorer[1].team;});
+    slides.push({type:'golden_boot',scorer:topScorer[0],goals:topScorer[1].goals,team:topScorer[1].team,coach:bt?bt.coach||'':'',bootImg:tour.goldenBootImg||null});
+  }
+
+  // 6. Best defense
+  if(bestDefense&&(bestDefense.conceded>=0)){
+    slides.push({type:'best_defense',team:bestDefense.name,conceded:bestDefense.conceded,cleanSheets:bestDefense.cleanSheets,coach:bestDefense.coach});
+  }
+
+  // 7. Biggest win(s)
+  if(biggestWins.length) slides.push({type:'biggest_win',wins:biggestWins,margin:maxMargin});
+
+  // 8. Hall of champions
+  if(hallOfChamps.length) slides.push({type:'hall_of_champs',list:hallOfChamps});
+
+  // 9. Suspense (if there's a defending champ)
+  if(defendingChamp) slides.push({type:'suspense',defending:defendingChamp,eliminated:!isDefending});
+
+  // 10. Buildup
   slides.push({type:'announce',lines:[
-    'Ladies and gentlemen,',
-    'After a long battle in this tournament,',
-    'A total of '+totalTeams+' teams participated in this tournament,',
-    'And a total of '+totalMatches+' matches were played.'
-  ]});
-  slides.push({type:'announce',lines:[
-    'Ladies and gentlemen 🔥🔥🔥🔥',
+    'Ladies and gentlemen \uD83D\uDD25\uD83D\uDD25\uD83D\uDD25\uD83D\uDD25',
     'We finally have the winner of '+tname+'!',
     'Put your hands together for...'
   ],big:true});
-  slides.push({type:'reveal',champ:champ,tour:tour});
+
+  // 11. Champion reveal
+  slides.push({type:'reveal',champ:champ,tour:tour,coach:champCoach,isDefending:isDefending});
+
+  // 12. Winner stats deep dive
+  slides.push({type:'winner_stats',champ:champ,matches:champMatches,w:cW,d:cD,l:cL,gf:cGF,ga:cGA,bigWin:cBigWin,bigLoss:cBigLoss,hardest:hardest,coach:champCoach});
+
   var idx=0;
+  function gs(k){return '<div class="anim-stat anim-line" style="animation-delay:'+(k*.25+.2)+'s">';}
+
   function renderSlide(){
-    if(idx>=slides.length){ animAfter(600,closeAnimOverlay); return; }
+    if(idx>=slides.length){animAfter(600,closeAnimOverlay);return;}
     var s=slides[idx];
     var content=document.getElementById('animContent');
     var fx=document.getElementById('animFx');
     fx.innerHTML='';
     if(_animFxInterval){clearInterval(_animFxInterval);_animFxInterval=null;}
-    if(s.type==='intro'){
-      content.innerHTML='<div class="anim-eyebrow anim-line">'+tname+'</div>'+
-        '<div class="anim-headline anim-line" style="animation-delay:.15s">The Road To Glory</div>'+
-        '<div class="anim-sub anim-line" style="animation-delay:.4s">Relive every step of the journey...</div>';
-      animAfter(2400,nextSlide);
-    } else if(s.type==='round'){
+    stopStadiumChantSfx();
+
+    if(s.type==='cr_intro'){
+      content.innerHTML=
+        '<div class="anim-eyebrow anim-line">'+tname+' \u00B7 End of Tournament</div>'+
+        '<div class="anim-headline anim-line" style="animation-delay:.2s"><span style="color:var(--gold)">EFH</span> Legends Recap</div>'+
+        '<div style="width:60px;height:1.5px;background:linear-gradient(90deg,transparent,var(--gold),transparent);margin:.8rem auto;opacity:0;animation:fadeInUp .4s .55s ease forwards"></div>'+
+        '<div class="anim-sub anim-line" style="animation-delay:.7s">Honoring the best teams &amp; players of this season</div>';
+      playChimeSfx();
+      animAfter(2800,nextSlide);
+
+    } else if(s.type==='group_round'){
       var rows='';
-      var matches=s.round.matches.filter(function(m){return m.t1&&m.t2&&matchScoreParts(m);});
-      matches.forEach(function(m,i){
+      s.matches.slice(0,4).forEach(function(m,i){
+        var sc=matchScoreParts(m);if(!sc)return;
+        var hN=m.homeName||(m.t1&&m.t1.name)||'?';
+        var aN=m.awayName||(m.t2&&m.t2.name)||'?';
+        var w1=m.winner&&m.winner.name===hN, w2=m.winner&&m.winner.name===aN;
+        rows+='<div class="anim-match-row" style="animation-delay:'+(.1+i*.15)+'s">'+
+          '<span class="anim-match-team'+(w1?' winner-team':'')+'">'+hN+'</span>'+
+          '<span class="anim-match-score">'+sc[0]+' - '+sc[1]+'</span>'+
+          '<span class="anim-match-team left'+(w2?' winner-team':'')+'">'+aN+'</span>'+
+          '</div>';
+      });
+      content.innerHTML='<div class="anim-eyebrow anim-line">'+s.rnd+'</div>'+rows;
+      playWhistleSfx();
+      animAfter(1000+s.matches.length*350,nextSlide);
+
+    } else if(s.type==='round'){
+      var rows2='';
+      var ms=s.round.matches.filter(function(m){return m.t1&&m.t2&&matchScoreParts(m);});
+      ms.forEach(function(m,i){
         var sc=matchScoreParts(m);
         var w1=m.winner&&m.winner.name===m.t1.name, w2=m.winner&&m.winner.name===m.t2.name;
-        rows+='<div class="anim-match-row" style="animation-delay:'+(.15+i*.18)+'s">'+
+        rows2+='<div class="anim-match-row" style="animation-delay:'+(.15+i*.18)+'s">'+
           '<span class="anim-match-team'+(w1?' winner-team':'')+'">'+m.t1.name+'</span>'+
           '<span class="anim-match-score">'+sc[0]+' - '+sc[1]+'</span>'+
           '<span class="anim-match-team left'+(w2?' winner-team':'')+'">'+m.t2.name+'</span>'+
           '</div>';
       });
-      content.innerHTML='<div class="anim-eyebrow anim-line">'+s.round.name+'</div>'+rows;
-      animAfter(1200+matches.length*450,nextSlide);
-    } else if(s.type==='stats'){
-      content.innerHTML='<div class="anim-eyebrow anim-line">By The Numbers</div>'+
+      content.innerHTML='<div class="anim-eyebrow anim-line">'+s.round.name+'</div>'+rows2;
+      playWhistleSfx();
+      animAfter(1200+ms.length*450,nextSlide);
+
+    } else if(s.type==='stats_numbers'){
+      content.innerHTML=
+        '<div class="anim-eyebrow anim-line">By The Numbers</div>'+
         '<div class="anim-stat-row">'+
-          '<div class="anim-stat anim-line" style="animation-delay:.2s"><div class="anim-stat-num">'+totalTeams+'</div><div class="anim-stat-lbl">Teams</div></div>'+
-          '<div class="anim-stat anim-line" style="animation-delay:.45s"><div class="anim-stat-num">'+totalMatches+'</div><div class="anim-stat-lbl">Matches Played</div></div>'+
+          gs(0)+'<div class="anim-stat-num">'+s.totalTeams+'</div><div class="anim-stat-lbl">Teams</div></div>'+
+          gs(1)+'<div class="anim-stat-num">'+s.totalMatches+'</div><div class="anim-stat-lbl">Matches</div></div>'+
+          gs(2)+'<div class="anim-stat-num">'+s.totalGoals+'</div><div class="anim-stat-lbl">Goals</div></div>'+
         '</div>';
-      animAfter(2600,nextSlide);
-    } else if(s.type==='announce'){
-      var html='';
-      s.lines.forEach(function(line,i){
-        html+='<div class="anim-sub anim-line" style="animation-delay:'+(i*.7)+'s'+(s.big?';font-size:1.1rem;color:var(--gold2);font-weight:700':'')+'">'+line+'</div>';
+      [0,.25,.5].forEach(function(d){ sfxTone(700+d*400,.25,'sine',.09,d); });
+      animAfter(3200,nextSlide);
+
+    } else if(s.type==='golden_boot'){
+      var bootImgHtml=s.bootImg?('<img src="'+s.bootImg+'" class="anim-boot-img" onerror="this.style.display=\'none\'">'):'';
+      content.innerHTML=
+        bootImgHtml+
+        '<div class="anim-eyebrow anim-line" style="margin-bottom:.5rem">\uD83D\uDD25 Let us put our hands together for</div>'+
+        '<div class="anim-sub anim-line" style="animation-delay:.2s;font-size:.9rem;color:var(--gold2)">The highest scorer in this tournament \uD83D\uDD25\uD83D\uDD25\uD83D\uDD25</div>'+
+        '<div style="width:50px;height:1px;background:rgba(201,168,76,.4);margin:.9rem auto;opacity:0;animation:fadeInUp .3s .9s ease forwards"></div>'+
+        '<div class="anim-headline anim-line" style="animation-delay:1.1s;color:var(--gold2);font-size:clamp(1.5rem,8vw,2.6rem)">\uD83E\uDD47 '+s.scorer+'</div>'+
+        '<div class="anim-sub anim-line" style="animation-delay:1.5s;color:var(--gold)">'+s.team+'</div>'+
+        (s.coach?'<div class="anim-sub anim-line" style="animation-delay:1.7s;color:var(--muted);font-size:.7rem">\uD83D\uDC64 Coach: '+s.coach+'</div>':'')+
+        '<div class="anim-stat-row" style="margin-top:.8rem">'+gs(6)+'<div class="anim-stat-num" style="color:#ffd700">'+s.goals+'</div><div class="anim-stat-lbl">Goals</div></div></div>';
+      animAfter(1100,playFanfareSfx);
+      animAfter(4800,nextSlide);
+
+    } else if(s.type==='best_defense'){
+      content.innerHTML=
+        '<div class="anim-eyebrow anim-line" style="color:#4db8ff">\uD83D\uDEE1\uFE0F The wall that nobody broke</div>'+
+        '<div class="anim-headline anim-line" style="animation-delay:.25s;font-size:clamp(1.4rem,7vw,2.5rem)">'+s.team+'</div>'+
+        (s.coach?'<div class="anim-sub anim-line" style="animation-delay:.5s;color:var(--muted);font-size:.7rem">\uD83D\uDC64 Coach: '+s.coach+'</div>':'')+
+        '<div class="anim-stat-row" style="margin-top:.8rem">'+
+          gs(3)+'<div class="anim-stat-num" style="color:#4db8ff">'+s.conceded+'</div><div class="anim-stat-lbl">Conceded</div></div>'+
+          (s.cleanSheets>0?gs(4)+'<div class="anim-stat-num" style="color:#4db8ff">'+s.cleanSheets+'</div><div class="anim-stat-lbl">Clean Sheets</div></div>':'')+
+        '</div>'+
+        '<div class="anim-sub anim-line" style="animation-delay:1.2s;color:rgba(77,184,255,.6)">Fortress at the back</div>';
+      playClangSfx();
+      animAfter(3400,nextSlide);
+
+    } else if(s.type==='biggest_win'){
+      var titleTxt=s.wins.length>1?'\uD83D\uDCA5 Joint Biggest Win \u00B7 '+s.margin+'-Goal Margin':'\uD83D\uDCA5 Biggest Win';
+      var rows3='';
+      s.wins.forEach(function(w,i){
+        var winner=w.hs>w.as?w.home:w.away;
+        rows3+='<div style="background:rgba(255,107,53,.05);border:1px solid rgba(255,107,53,.2);border-radius:10px;padding:.7rem .9rem;opacity:0;animation:fadeInUp .5s '+(.2+i*.25)+'s ease forwards">'+
+          '<div style="display:flex;align-items:center;justify-content:space-between;gap:.4rem">'+
+            '<div><div style="font-family:\'Anton\',sans-serif;font-size:.95rem">'+w.home+'</div>'+(w.hCoach?'<div style="font-size:.5rem;color:var(--muted);font-family:\'DM Sans\',sans-serif">\uD83D\uDC64 '+w.hCoach+'</div>':'')+
+            '</div><div style="font-family:\'Anton\',sans-serif;font-size:1.5rem;color:#ff6b35;flex-shrink:0">'+w.hs+' \u2013 '+w.as+'</div>'+
+            '<div style="text-align:right"><div style="font-family:\'Anton\',sans-serif;font-size:.95rem">'+w.away+'</div>'+(w.aCoach?'<div style="font-size:.5rem;color:var(--muted);font-family:\'DM Sans\',sans-serif">\uD83D\uDC64 '+w.aCoach+'</div>':'')+
+            '</div></div>'+(w.round?'<div style="font-size:.48rem;letter-spacing:1px;color:rgba(255,107,53,.5);margin-top:.3rem;text-align:center">'+w.round+'</div>':'')+
+          '</div>';
       });
-      content.innerHTML=html;
+      content.innerHTML='<div class="anim-eyebrow anim-line">'+titleTxt+'</div>'+
+        '<div style="display:flex;flex-direction:column;gap:.4rem;width:100%;max-width:370px;margin-top:.5rem">'+rows3+'</div>';
+      playCrashSfx();
+      animAfter(3200+s.wins.length*500,nextSlide);
+
+    } else if(s.type==='hall_of_champs'){
+      var rows4=s.list.map(function(entry,i){
+        return '<div style="display:flex;align-items:center;padding:.55rem .8rem;border-bottom:1px solid rgba(255,255,255,.04);opacity:0;animation:fadeInUp .4s '+(.15+i*.2)+'s ease forwards">'+
+          '<div style="font-family:\'Anton\',sans-serif;font-size:.7rem;color:rgba(201,168,76,.35);min-width:24px;text-align:center">'+(i+1)+'</div>'+
+          '<div style="margin-left:.6rem;flex:1"><div style="font-size:.5rem;letter-spacing:1px;color:var(--muted)">'+entry.name+'</div>'+
+          '<div style="font-family:\'Anton\',sans-serif;font-size:.9rem">'+entry.champ.name+'</div></div>'+
+          '<span style="font-size:.45rem;letter-spacing:1.2px;padding:.18rem .45rem;border-radius:20px;background:rgba(0,232,122,.1);color:var(--green);border:1px solid rgba(0,232,122,.25)">\uD83C\uDFC6 Winner</span>'+
+        '</div>';
+      }).join('');
+      content.innerHTML=
+        '<div class="anim-eyebrow anim-line" style="margin-bottom:.7rem">Hall of Champions</div>'+
+        '<div style="width:100%;max-width:370px;background:rgba(255,255,255,.025);border:1px solid rgba(201,168,76,.18);border-radius:12px;overflow:hidden">'+
+          '<div style="display:flex;padding:.42rem .8rem;background:rgba(201,168,76,.07);border-bottom:1px solid rgba(201,168,76,.12);font-size:.48rem;letter-spacing:2px;color:rgba(201,168,76,.45);text-transform:uppercase">'+
+            '<div style="min-width:24px">#</div><div style="margin-left:.6rem;flex:1">Season</div><div>Champion</div>'+
+          '</div>'+
+          rows4+
+        '</div>'+
+        '<div class="anim-sub anim-line" style="animation-delay:'+(1+s.list.length*.2)+'s;margin-top:.7rem">Who writes their name here next?</div>';
+      s.list.forEach(function(entry,i){ playCameraClickSfx(.15+i*.2); });
+      animAfter(2400+s.list.length*400,nextSlide);
+
+    } else if(s.type==='suspense'){
+      content.innerHTML=
+        '<div class="anim-sub anim-line" style="margin-bottom:.9rem">The reigning champions entered as favourites...</div>'+
+        '<div class="anim-headline anim-line" style="animation-delay:.3s;font-size:clamp(1.6rem,8vw,2.8rem)">Will <span style="color:var(--gold)">'+s.defending.name+'</span><br>be able to<br>defend<br>their throne?</div>'+
+        (s.eliminated?
+          '<div class="anim-sub anim-line" style="animation-delay:2s;color:rgba(255,59,92,.7);margin-top:.8rem">'+s.defending.name+' have been eliminated. The throne is vacant.</div>':
+          '<div class="anim-sub anim-line" style="animation-delay:2s;color:rgba(201,168,76,.5);margin-top:.8rem">They made it to the Final... the answer is about to be revealed.</div>'
+        );
+      playDrumrollSfx(4200);
+      animAfter(4200,nextSlide);
+
+    } else if(s.type==='announce'){
+      var html2='';
+      s.lines.forEach(function(line,i){
+        html2+='<div class="anim-sub anim-line" style="animation-delay:'+(i*.7)+'s'+(s.big?';font-size:1.1rem;color:var(--gold2);font-weight:700':'')+'">'+line+'</div>';
+      });
+      content.innerHTML=html2;
+      if(s.big) playTensionRiseSfx(900+s.lines.length*900);
       animAfter(900+s.lines.length*900,nextSlide);
+
     } else if(s.type==='reveal'){
       var cupSrc=s.tour.winnerTrophyImg||'efh_cup.png';
-      content.innerHTML='<img src="'+cupSrc+'" class="anim-cup-img" onerror="this.style.display=\'none\'">'+
-        '<div class="anim-champ-name">'+s.champ.name+'</div>'+
-        '<div class="anim-sub anim-line" style="animation-delay:.7s">🏆 '+tname+' Champions 🏆</div>';
+      content.innerHTML=
+        '<img src="'+cupSrc+'" class="anim-cup-img" onerror="this.style.display=\'none\'">'+
+        '<div class="anim-eyebrow anim-line" style="animation-delay:.2s">'+tname+' \u00B7 Champions</div>'+
+        '<div class="anim-champ-name" style="animation-delay:.4s">'+s.champ.name+'</div>'+
+        (s.coach?'<div class="anim-sub anim-line" style="animation-delay:.7s;color:var(--muted);font-size:.72rem">\uD83D\uDC64 Coach: '+s.coach+'</div>':'')+
+        (s.isDefending?
+          '<div style="margin-top:.8rem;padding:.55rem 1rem;background:rgba(255,214,0,.08);border:1px solid rgba(255,214,0,.3);border-radius:10px;font-family:\'Anton\',sans-serif;font-size:.7rem;letter-spacing:1.5px;color:#ffd600;opacity:0;animation:fadeInUp .6s 1.1s ease forwards">\uD83D\uDC51 BACK-TO-BACK \u2014 They defend the throne!</div>':
+          '<div style="margin-top:.8rem;padding:.55rem 1rem;background:rgba(0,232,122,.07);border:1px solid rgba(0,232,122,.25);border-radius:10px;font-size:.7rem;letter-spacing:1px;color:var(--green);opacity:0;animation:fadeInUp .6s 1.1s ease forwards">\uD83C\uDD95 First-time champions! The throne has a new king.</div>'
+        );
       startCelebrationFx();
-      animAfter(9000,closeAnimOverlay);
+      playCrowdRoarSfx();
+      animAfter(7500,nextSlide);
+
+    } else if(s.type==='winner_stats'){
+      var matchRows='';
+      s.matches.forEach(function(m,i){
+        var isHome=(m.homeName||(m.t1&&m.t1.name)||'')===s.champ.name;
+        var hs=(m.leg1h||0)+(m.et1h||0), as=(m.leg1a||0)+(m.et1a||0);
+        var gf=isHome?hs:as, ga=isHome?as:hs;
+        var opp=isHome?(m.awayName||(m.t2&&m.t2.name)||'?'):(m.homeName||(m.t1&&m.t1.name)||'?');
+        var res=gf>ga?'w':gf===ga?'d':'l';
+        var isBW=s.bigWin&&s.bigWin.opp===opp&&s.bigWin.gf===gf&&s.bigWin.ga===ga;
+        var isBL=s.bigLoss&&s.bigLoss.opp===opp&&s.bigLoss.gf===gf&&s.bigLoss.ga===ga;
+        var isH=s.hardest&&s.hardest===opp&&res==='w';
+        matchRows+='<div style="display:flex;align-items:center;padding:.38rem .7rem;border-bottom:1px solid rgba(255,255,255,.04);font-size:.68rem;gap:.4rem">'+
+          '<div style="font-size:.46rem;letter-spacing:1px;color:var(--muted);min-width:44px;flex-shrink:0">'+(m.round||'').split('·')[0].trim()+'</div>'+
+          '<div style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">vs '+opp+'</div>'+
+          '<div style="font-family:\'Anton\',sans-serif;font-size:.8rem;min-width:34px;text-align:center;color:'+(res==='w'?'var(--green)':res==='d'?'#4db8ff':'#ff3b5c')+'">'+gf+'\u2013'+ga+'</div>'+
+          (isBW?'<span style="font-size:.42rem;letter-spacing:1px;padding:.1rem .32rem;border-radius:8px;background:rgba(255,107,53,.15);color:#ff6b35;border:1px solid rgba(255,107,53,.3);flex-shrink:0">BIG W</span>':'')+
+          (isBL?'<span style="font-size:.42rem;letter-spacing:1px;padding:.1rem .32rem;border-radius:8px;background:rgba(255,59,92,.12);color:#ff3b5c;border:1px solid rgba(255,59,92,.25);flex-shrink:0">LOSS</span>':'')+
+          (isH&&!isBW?'<span style="font-size:.42rem;letter-spacing:1px;padding:.1rem .32rem;border-radius:8px;background:rgba(77,184,255,.1);color:#4db8ff;border:1px solid rgba(77,184,255,.25);flex-shrink:0">HARD</span>':'')+
+        '</div>';
+      });
+      content.innerHTML=
+        '<div class="anim-eyebrow anim-line">'+s.champ.name+' \u00B7 Full Season</div>'+
+        (s.coach?'<div style="font-size:.6rem;color:var(--muted);font-family:\'DM Sans\',sans-serif;text-align:center;margin-bottom:.7rem">\uD83D\uDC64 Coach: '+s.coach+'</div>':'')+
+        '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem;width:100%;max-width:360px;margin-bottom:.6rem">'+
+          '<div style="background:rgba(0,232,122,.08);border:1px solid rgba(0,232,122,.2);border-radius:8px;padding:.55rem .4rem;text-align:center"><div style="font-family:\'Anton\',sans-serif;font-size:1.5rem;color:var(--green)">'+s.w+'</div><div style="font-size:.48rem;letter-spacing:1.5px;color:var(--muted)">WINS</div></div>'+
+          '<div style="background:rgba(77,184,255,.07);border:1px solid rgba(77,184,255,.2);border-radius:8px;padding:.55rem .4rem;text-align:center"><div style="font-family:\'Anton\',sans-serif;font-size:1.5rem;color:#4db8ff">'+s.d+'</div><div style="font-size:.48rem;letter-spacing:1.5px;color:var(--muted)">DRAWS</div></div>'+
+          '<div style="background:rgba(255,59,92,.07);border:1px solid rgba(255,59,92,.2);border-radius:8px;padding:.55rem .4rem;text-align:center"><div style="font-family:\'Anton\',sans-serif;font-size:1.5rem;color:#ff3b5c">'+s.l+'</div><div style="font-size:.48rem;letter-spacing:1.5px;color:var(--muted)">LOSSES</div></div>'+
+        '</div>'+
+        '<div style="width:100%;max-width:360px;background:rgba(255,255,255,.025);border:1px solid var(--border);border-radius:10px;overflow:hidden;max-height:220px;overflow-y:auto">'+
+          '<div style="padding:.3rem .7rem;font-size:.46rem;letter-spacing:2px;color:rgba(201,168,76,.45);text-transform:uppercase;background:rgba(201,168,76,.05);border-bottom:1px solid var(--border)">All Matches</div>'+
+          matchRows+
+        '</div>'+
+        (s.bigWin?'<div style="display:flex;align-items:center;gap:.6rem;width:100%;max-width:360px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:9px;padding:.6rem .8rem;margin-top:.45rem"><div style="font-size:1rem;flex-shrink:0">\u2694\uFE0F</div><div><div style="font-size:.48rem;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase">Biggest Win</div><div style="font-family:\'Anton\',sans-serif;font-size:.88rem">'+s.bigWin.gf+'\u2013'+s.bigWin.ga+' vs '+s.bigWin.opp+'</div></div></div>':'')+ 
+        (s.bigLoss?'<div style="display:flex;align-items:center;gap:.6rem;width:100%;max-width:360px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:9px;padding:.6rem .8rem;margin-top:.35rem"><div style="font-size:1rem;flex-shrink:0">\uD83D\uDC94</div><div><div style="font-size:.48rem;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase">Biggest Loss</div><div style="font-family:\'Anton\',sans-serif;font-size:.88rem">'+s.bigLoss.gf+'\u2013'+s.bigLoss.ga+' vs '+s.bigLoss.opp+'</div></div></div>':'')+
+        (s.hardest?'<div style="display:flex;align-items:center;gap:.6rem;width:100%;max-width:360px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:9px;padding:.6rem .8rem;margin-top:.35rem"><div style="font-size:1rem;flex-shrink:0">\uD83D\uDD25</div><div><div style="font-size:.48rem;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase">Hardest Opponent</div><div style="font-family:\'Anton\',sans-serif;font-size:.88rem">'+s.hardest+'</div></div></div>':'')+
+        '<div style="display:flex;align-items:center;gap:.6rem;width:100%;max-width:360px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:9px;padding:.6rem .8rem;margin-top:.35rem"><div style="font-size:1rem;flex-shrink:0">\uD83D\uDCCA</div><div><div style="font-size:.48rem;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase">Goals</div><div style="font-family:\'Anton\',sans-serif;font-size:.88rem">'+s.gf+' Scored \u00B7 '+s.ga+' Conceded (GD '+(s.gf-s.ga>=0?'+':'')+(s.gf-s.ga)+')</div></div></div>';
+      startStadiumChantSfx();
+      animAfter(12000,closeAnimOverlay);
     }
   }
-  function nextSlide(){ idx++; renderSlide(); }
+  function nextSlide(){idx++;renderSlide();}
   renderSlide();
 }
 </script>
