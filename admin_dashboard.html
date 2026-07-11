@@ -260,8 +260,8 @@ td.pts{font-family:'Anton',sans-serif;font-size:1.1rem;color:var(--gold);text-sh
     <div class="info" style="margin-bottom:1rem">Teams created here exist permanently — visible on the public page even before any tournament starts.</div>
 
     <!-- Registry modal overlay -->
-    <div id="regFormWrap" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:500;align-items:flex-end;justify-content:center;backdrop-filter:blur(3px)" onclick="if(event.target===this)cancelRegistryForm()">
-      <div id="regFormSheet" style="background:var(--card);border:1px solid var(--border);border-radius:18px 18px 0 0;width:100%;max-width:480px;max-height:92vh;overflow-y:auto;padding:1.2rem 1.2rem 2rem;transform:translateY(100%);transition:transform .3s cubic-bezier(.4,0,.2,1)">
+    <div id="regFormWrap" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:500;align-items:center;justify-content:center;backdrop-filter:blur(3px)" onclick="if(event.target===this)cancelRegistryForm()">
+      <div id="regFormSheet" style="background:var(--card);border:1px solid var(--border);border-radius:18px;width:100%;max-width:480px;max-height:92vh;overflow-y:auto;padding:1.2rem 1.2rem 2rem;transform:translateY(100%);transition:transform .3s cubic-bezier(.4,0,.2,1)">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
           <div class="card-title" id="regFormTitle" style="margin-bottom:0">➕ New Team</div>
           <button onclick="cancelRegistryForm()" style="background:none;border:none;color:var(--muted);font-size:1.3rem;cursor:pointer;padding:.2rem;transition:color .2s" onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--muted)'">✕</button>
@@ -847,8 +847,8 @@ td.pts{font-family:'Anton',sans-serif;font-size:1.1rem;color:var(--gold);text-sh
 </div>
 
 <!-- SEASON / TOURNAMENT PICKER SHEET -->
-<div id="seasonPickerWrap" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:520;align-items:flex-end;justify-content:center;backdrop-filter:blur(3px)" onclick="if(event.target===this)closeSeasonPicker()">
-  <div id="seasonPickerSheet" style="background:var(--card);border:1px solid var(--border);border-radius:18px 18px 0 0;width:100%;max-width:480px;max-height:85vh;overflow-y:auto;padding:1.2rem 1.2rem 2rem;transform:translateY(100%);transition:transform .3s cubic-bezier(.4,0,.2,1)">
+<div id="seasonPickerWrap" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:520;align-items:center;justify-content:center;backdrop-filter:blur(3px)" onclick="if(event.target===this)closeSeasonPicker()">
+  <div id="seasonPickerSheet" style="background:var(--card);border:1px solid var(--border);border-radius:18px;width:100%;max-width:480px;max-height:85vh;overflow-y:auto;padding:1.2rem 1.2rem 2rem;transform:translateY(100%);transition:transform .3s cubic-bezier(.4,0,.2,1)">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.8rem">
       <div class="card-title" style="margin-bottom:0">🏆 Select Tournament</div>
       <button onclick="closeSeasonPicker()" style="background:none;border:none;color:var(--muted);font-size:1.3rem;cursor:pointer;padding:.2rem">✕</button>
@@ -871,8 +871,8 @@ td.pts{font-family:'Anton',sans-serif;font-size:1.1rem;color:var(--gold);text-sh
 </div>
 
 <!-- AWARD DETAIL SHEET -->
-<div id="awardDetailOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:520;align-items:flex-end;justify-content:center;backdrop-filter:blur(3px)" onclick="if(event.target===this)closeAwardDetail()">
-  <div style="background:var(--card);border:1px solid var(--border);border-radius:18px 18px 0 0;width:100%;max-width:480px;max-height:88vh;overflow-y:auto;padding:1.2rem 1.2rem 2rem">
+<div id="awardDetailOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:520;align-items:center;justify-content:center;backdrop-filter:blur(3px)" onclick="if(event.target===this)closeAwardDetail()">
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:18px;width:100%;max-width:480px;max-height:88vh;overflow-y:auto;padding:1.2rem 1.2rem 2rem">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.8rem">
       <div class="card-title" style="margin-bottom:0">🏅 Award Detail</div>
       <button onclick="closeAwardDetail()" style="background:none;border:none;color:var(--muted);font-size:1.3rem;cursor:pointer;padding:.2rem">✕</button>
@@ -884,8 +884,8 @@ td.pts{font-family:'Anton',sans-serif;font-size:1.1rem;color:var(--gold);text-sh
 </div>
 
 <!-- REGISTRY TEAM DETAIL PANEL -->
-<div id="regTeamDetailOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:520;align-items:flex-end;justify-content:center;backdrop-filter:blur(3px)" onclick="if(event.target===this)closeRegTeamDetail()">
-  <div style="background:var(--card);border:1px solid var(--border);border-radius:18px 18px 0 0;width:100%;max-width:480px;max-height:90vh;overflow-y:auto;padding:1.2rem 1.2rem 2rem">
+<div id="regTeamDetailOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:520;align-items:center;justify-content:center;backdrop-filter:blur(3px)" onclick="if(event.target===this)closeRegTeamDetail()">
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:18px;width:100%;max-width:480px;max-height:90vh;overflow-y:auto;padding:1.2rem 1.2rem 2rem">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.8rem">
       <div class="card-title" style="margin-bottom:0">👤 Team Details</div>
       <button onclick="closeRegTeamDetail()" style="background:none;border:none;color:var(--muted);font-size:1.3rem;cursor:pointer;padding:.2rem">✕</button>

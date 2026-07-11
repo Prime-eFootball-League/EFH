@@ -1081,25 +1081,47 @@ function renderTreasury(){
   var typeLabels=AWARD_TYPE_LABELS_PUB;
   var typeColors=AWARD_TYPE_COLORS_PUB;
 
-  // Group by type for sections
-  var sections={'trophy_1st':[],'medal_1st':[],'medal_2nd':[],'medal_3rd':[],'golden_boot':[],'best_defense':[],'custom':[]};
-  awards.forEach(function(a){ if(sections[a.type]) sections[a.type].push(a); else sections.custom.push(a); });
+  // Group by type for sections. Champion Trophy and Gold Medal are merged —
+  // for a given tournament these are almost always the same recipient, so
+  // showing them as two separate cards is just noise.
+  var sections={'champions':[],'medal_2nd':[],'medal_3rd':[],'golden_boot':[],'best_defense':[],'custom':[]};
+  var trophy1st=awards.filter(function(a){return a.type==='trophy_1st';});
+  var medal1st=awards.filter(function(a){return a.type==='medal_1st';});
+  var usedMedalIds={};
+  trophy1st.forEach(function(t){
+    var pairedMedal=medal1st.find(function(m){
+      if(usedMedalIds[m.id]) return false;
+      if(t.tournamentId&&m.tournamentId) return String(t.tournamentId)===String(m.tournamentId);
+      return t.recipient&&m.recipient&&t.recipient.trim().toLowerCase()===m.recipient.trim().toLowerCase()&&t.season===m.season;
+    });
+    if(pairedMedal) usedMedalIds[pairedMedal.id]=true;
+    sections.champions.push(Object.assign({},t,{_pairedMedal:pairedMedal||null}));
+  });
+  medal1st.forEach(function(m){ if(!usedMedalIds[m.id]) sections.champions.push(m); });
+  awards.forEach(function(a){
+    if(a.type==='trophy_1st'||a.type==='medal_1st') return;
+    if(sections[a.type]) sections[a.type].push(a); else sections.custom.push(a);
+  });
+  var sectionLabels={'champions':'🏆 Champions','medal_2nd':typeLabels.medal_2nd,'medal_3rd':typeLabels.medal_3rd,'golden_boot':typeLabels.golden_boot,'best_defense':typeLabels.best_defense,'custom':typeLabels.custom};
+  var sectionColors={'champions':typeColors.trophy_1st,'medal_2nd':typeColors.medal_2nd,'medal_3rd':typeColors.medal_3rd,'golden_boot':typeColors.golden_boot,'best_defense':typeColors.best_defense,'custom':typeColors.custom};
 
-  var h='<div style="font-family:Anton,sans-serif;font-size:1.2rem;letter-spacing:3px;color:var(--gold);text-align:center;margin-bottom:1.2rem">🏛️ TREASURE HALL</div>';
+  var h='<div style="font-family:Anton,sans-serif;font-size:1.2rem;letter-spacing:3px;color:var(--gold);text-align:center;margin-bottom:1.2rem">🏛️ AWARD HALL</div>';
 
   Object.keys(sections).forEach(function(type){
     var items=sections[type];
     if(!items.length)return;
-    var col=typeColors[type]||'#c9a84c';
-    h+='<div style="margin-bottom:1.4rem"><div style="font-family:Anton,sans-serif;font-size:.7rem;letter-spacing:3px;color:'+col+';text-transform:uppercase;margin-bottom:.6rem;padding-bottom:.4rem;border-bottom:1px solid rgba(201,168,76,.15)">'+( typeLabels[type]||type)+'</div>';
+    var col=sectionColors[type]||'#c9a84c';
+    h+='<div style="margin-bottom:1.4rem"><div style="font-family:Anton,sans-serif;font-size:.7rem;letter-spacing:3px;color:'+col+';text-transform:uppercase;margin-bottom:.6rem;padding-bottom:.4rem;border-bottom:1px solid rgba(201,168,76,.15)">'+(sectionLabels[type]||type)+'</div>';
     h+='<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:.6rem">';
     items.forEach(function(a){
+      var badge=a._pairedMedal?'<div style="font-size:.55rem;color:#ffd700;margin-top:.2rem">🥇 + Gold Medal</div>':'';
       h+='<div style="background:rgba(255,255,255,.03);border:1px solid rgba(201,168,76,.15);border-radius:12px;padding:.8rem;text-align:center;position:relative;overflow:hidden;cursor:pointer" onclick="openAwardShowcase(\''+a.id+'\')">'+
         '<div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,'+col+',transparent)"></div>'+
-        (a.img?'<img src="'+a.img+'" style="width:84px;height:84px;object-fit:contain;border-radius:8px;margin-bottom:.5rem">':'<div style="font-size:2.8rem;margin-bottom:.4rem">'+(typeLabels[type]||'🏅').split(' ')[0]+'</div>')+
+        (a.img?'<img src="'+a.img+'" style="width:84px;height:84px;object-fit:contain;border-radius:8px;margin-bottom:.5rem">':'<div style="font-size:2.8rem;margin-bottom:.4rem">'+(typeLabels[a.type]||'🏅').split(' ')[0]+'</div>')+
         '<div style="font-family:Anton,sans-serif;font-size:.82rem;color:'+col+';letter-spacing:.5px;line-height:1.2;margin-bottom:.3rem">'+a.recipient+'</div>'+
         '<div style="font-size:.6rem;color:var(--muted)">'+a.name+'</div>'+
         (a.season?'<div style="font-size:.55rem;color:rgba(201,168,76,.5);margin-top:.2rem">'+a.season+(a.year?' · '+a.year:'')+'</div>':'')+
+        badge+
       '</div>';
     });
     h+='</div></div>';
@@ -1113,9 +1135,14 @@ function findAwardTeam(tour,recipientName){
   if(!tour||!recipientName) return null;
   return (tour.teams||[]).find(function(x){return x.name&&x.name.trim().toLowerCase()===recipientName.trim().toLowerCase();})||null;
 }
+function findByRecipient(rankedArr,recipientName){
+  if(!recipientName) return -1;
+  return rankedArr.findIndex(function(x){return x.name&&x.name.trim().toLowerCase()===recipientName.trim().toLowerCase();});
+}
 
 // Build a short, factual "how they won it" line from real tournament data —
-// never a guess or generic filler.
+// never a guess or generic filler. Golden Boot / Best Defense compare against
+// the rest of the field rather than stating the number in isolation.
 function getAwardBlurb(a){
   var tour=a.tournamentId?db.tournaments.find(function(t){return t.id===a.tournamentId;}):null;
   if(!tour) return '';
@@ -1133,13 +1160,33 @@ function getAwardBlurb(a){
     }
     return 'Crowned champions of '+tour.name;
   }
-  if(a.type==='golden_boot'||a.type==='best_defense'){
-    var tm=findAwardTeam(tour,a.recipient);
-    if(tm){
-      return a.type==='golden_boot'
-        ? tm.goalsFor+' goals scored in '+tm.played+' matches'
-        : 'Only '+tm.goalsAgainst+' goals conceded in '+tm.played+' matches';
+  if(a.type==='golden_boot'){
+    var ranking=getTeamGoalsRanking(tour);
+    var idx=findByRecipient(ranking,a.recipient);
+    if(idx===-1||!ranking.length) return '';
+    var top=ranking[idx];
+    if(idx===0){
+      var second=ranking[1];
+      var margin=second?top.totalGoals-second.totalGoals:top.totalGoals;
+      return second
+        ? top.totalGoals+' goals — '+margin+' more than the next best ('+second.name+', '+second.totalGoals+')'
+        : top.totalGoals+' goals scored, the most in the tournament';
     }
+    // Award given to a team that isn't the top scorer per this calc — still
+    // state the real number rather than pretending they're #1.
+    return top.totalGoals+' goals scored ('+(idx+1)+'th highest in the tournament)';
+  }
+  if(a.type==='best_defense'){
+    var dRank=getDefenseRanking(tour);
+    var dIdx=findByRecipient(dRank,a.recipient);
+    if(dIdx===-1||!dRank.length) return '';
+    var teamD=dRank[dIdx];
+    var closeRivals=dRank.filter(function(x,i){return i!==dIdx;}).slice(0,3);
+    var line='Only '+teamD.conceded+' goals conceded in '+teamD.played+' matches ('+teamD.cleanSheets+' clean sheet'+(teamD.cleanSheets===1?'':'s')+')';
+    if(closeRivals.length){
+      line+='<br><span style="font-size:.68rem;opacity:.75">Closest: '+closeRivals.map(function(x){return x.name+' ('+x.conceded+')';}).join(' · ')+'</span>';
+    }
+    return line;
   }
   if(a.type==='medal_1st'||a.type==='medal_2nd'||a.type==='medal_3rd'){
     var tm2=findAwardTeam(tour,a.recipient);
@@ -1148,19 +1195,41 @@ function getAwardBlurb(a){
   return '';
 }
 
+// Jump from the showcase straight to the relevant in-tournament tab.
+function goToAwardTourSection(tourId,section){
+  closeAwardShowcase();
+  if(tourId) openTour(tourId);
+  showSec(section);
+}
+
 function openAwardShowcase(id){
   var a=(db.awards||[]).find(function(x){return x.id===id;});
   if(!a) return;
   var col=AWARD_TYPE_COLORS_PUB[a.type]||'#c9a84c';
   var label=AWARD_TYPE_LABELS_PUB[a.type]||a.type;
   var blurb=getAwardBlurb(a);
+  var pairedMedal=null;
+  if(a.type==='trophy_1st'){
+    pairedMedal=(db.awards||[]).find(function(m){
+      if(m.type!=='medal_1st') return false;
+      if(a.tournamentId&&m.tournamentId) return String(a.tournamentId)===String(m.tournamentId);
+      return m.recipient&&a.recipient&&m.recipient.trim().toLowerCase()===a.recipient.trim().toLowerCase()&&m.season===a.season;
+    });
+  }
+  var actionBtn='';
+  if(a.type==='trophy_1st'&&a.tournamentId){
+    actionBtn='<button onclick="goToAwardTourSection(\''+a.tournamentId+'\',\'playoffs\')" style="background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.4);color:var(--gold);font-family:Oswald,sans-serif;font-size:.68rem;letter-spacing:1px;padding:.55rem 1rem;border-radius:8px;cursor:pointer;margin-top:.6rem">🏟 VIEW KNOCKOUT BRACKET</button>';
+  } else if(a.type==='golden_boot'&&a.tournamentId){
+    actionBtn='<button onclick="goToAwardTourSection(\''+a.tournamentId+'\',\'goals\')" style="background:rgba(255,107,53,.12);border:1px solid rgba(255,107,53,.4);color:#ff6b35;font-family:Oswald,sans-serif;font-size:.68rem;letter-spacing:1px;padding:.55rem 1rem;border-radius:8px;cursor:pointer;margin-top:.6rem">🥅 VIEW GOAL RANKINGS</button>';
+  }
   var body='<div style="text-align:center;padding:.5rem 0 1rem">'+
     (a.img?'<img src="'+a.img+'" style="width:180px;height:180px;object-fit:contain;margin-bottom:1.1rem;filter:drop-shadow(0 10px 28px rgba(0,0,0,.55))">':'<div style="font-size:5rem;margin-bottom:.6rem">'+label.split(' ')[0]+'</div>')+
-    '<div style="font-family:Anton,sans-serif;font-size:.68rem;letter-spacing:3px;color:'+col+';text-transform:uppercase;margin-bottom:.5rem">'+label+'</div>'+
+    '<div style="font-family:Anton,sans-serif;font-size:.68rem;letter-spacing:3px;color:'+col+';text-transform:uppercase;margin-bottom:.5rem">'+label+(pairedMedal?' + 🥇 Gold Medal':'')+'</div>'+
     '<div style="font-family:Anton,sans-serif;font-size:1.5rem;color:var(--gold);letter-spacing:1px;margin-bottom:.3rem">'+a.recipient+'</div>'+
     '<div style="font-size:.85rem;color:var(--text);margin-bottom:.6rem">'+a.name+'</div>'+
-    (blurb?'<div style="font-size:.78rem;color:var(--muted);background:rgba(255,255,255,.03);border:1px solid rgba(201,168,76,.15);border-radius:10px;padding:.65rem .9rem;margin:.4rem auto .3rem;max-width:320px">'+blurb+'</div>':'')+
+    (blurb?'<div style="font-size:.78rem;color:var(--muted);background:rgba(255,255,255,.03);border:1px solid rgba(201,168,76,.15);border-radius:10px;padding:.65rem .9rem;margin:.4rem auto .3rem;max-width:320px;line-height:1.5">'+blurb+'</div>':'')+
     (a.season?'<div style="font-size:.7rem;color:rgba(201,168,76,.6);margin-top:.5rem">'+a.season+(a.year?' · '+a.year:'')+'</div>':'')+
+    actionBtn+
   '</div>';
   document.getElementById('awardShowcaseBody').innerHTML=body;
   document.getElementById('awardShowcasePanel').style.display='block';
@@ -1168,6 +1237,7 @@ function openAwardShowcase(id){
 function closeAwardShowcase(){
   document.getElementById('awardShowcasePanel').style.display='none';
 }
+
 
 function renderPastSeasons(){
   var el=document.getElementById('secPast');
@@ -2865,6 +2935,57 @@ function startCelebrationFx(){
     spawnFirework();
   },650);
 }
+// Full team goal ranking for a tournament (group + playoff goals combined) —
+// identical calc to renderGoalsRanking's Goals tab, so numbers always match.
+function getTeamGoalsRanking(tour){
+  if(!tour||!tour.teams) return [];
+  var pg={};
+  if(tour.bracketRounds) tour.bracketRounds.forEach(function(r){
+    r.matches.forEach(function(m){
+      if(!m.t1||!m.t2) return;
+      var i1=m.t1.id,i2=m.t2.id;
+      if(!pg[i1]) pg[i1]=0; if(!pg[i2]) pg[i2]=0;
+      if(m.leg1h!=null){pg[i1]+=m.leg1h;pg[i2]+=m.leg1a;}
+      if(m.et1h!=null){pg[i1]+=m.et1h;pg[i2]+=m.et1a;}
+      if(m.leg2h!=null){pg[i2]+=m.leg2h;pg[i1]+=m.leg2a;}
+      if(m.et2h!=null){pg[i2]+=m.et2h;pg[i1]+=m.et2a;}
+    });
+  });
+  return tour.teams.map(function(t){
+    var gs=t.goalsFor||0,po=pg[t.id]||0;
+    return{name:t.name,id:t.id,totalGoals:gs+po};
+  }).sort(function(a,b){return b.totalGoals-a.totalGoals;});
+}
+
+// Full defensive ranking for a tournament (conceded + clean sheets, group +
+// playoff matches) — same calc as admin's getBestDefenseWinner.
+function getDefenseRanking(tour){
+  if(!tour) return [];
+  function normScore(m){
+    if(m.homeScore!=null) return {hs:m.homeScore, as:m.awayScore};
+    if(m.leg1h!=null) return {hs:(m.leg1h||0)+(m.et1h||0), as:(m.leg1a||0)+(m.et1a||0)};
+    return null;
+  }
+  var groupDone=(tour.matches||[]).filter(function(m){return m.done&&m.homeScore!=null;});
+  var bracketDone=(tour.bracketRounds||[]).reduce(function(acc,r){
+    return acc.concat(r.matches.filter(function(m){return m.done&&m.leg1h!=null;}));
+  },[]);
+  var allDone=groupDone.concat(bracketDone);
+  var teamStats={};
+  (tour.teams||[]).forEach(function(t){
+    teamStats[t.name]={name:t.name,conceded:0,cleanSheets:0,played:0};
+  });
+  allDone.forEach(function(m){
+    var sc=normScore(m); if(!sc) return;
+    var h=m.homeName||(m.t1&&m.t1.name)||null;
+    var a=m.awayName||(m.t2&&m.t2.name)||null;
+    if(h&&teamStats[h]){teamStats[h].conceded+=sc.as;teamStats[h].played++;if(sc.as===0)teamStats[h].cleanSheets++;}
+    if(a&&teamStats[a]){teamStats[a].conceded+=sc.hs;teamStats[a].played++;if(sc.hs===0)teamStats[a].cleanSheets++;}
+  });
+  return Object.values(teamStats).filter(function(t){return t.played>0;})
+    .sort(function(a,b){return a.conceded-b.conceded;});
+}
+
 function getChampion(tour){
   if(!tour||!tour.bracketRounds||!tour.bracketRounds.length) return null;
   var mainRounds=tour.bracketRounds.filter(function(r){return r.matches[0]&&!r.matches[0].is3rd;});
