@@ -4,7 +4,7 @@
 // Both admin_dashboard.html and index.html call this same function, sending a
 // "mode" (admin/public), a system prompt, live site context, and the message.
 
-const GEMINI_MODEL = 'gemini-2.5-flash'; // swap here if you want a different model later
+const GEMINI_MODEL = 'gemini-1.5-flash'; // gemini-2.5-flash needs billing enabled; 1.5-flash is free tier
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
 exports.handler = async function (event) {
