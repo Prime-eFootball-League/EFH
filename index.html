@@ -888,13 +888,16 @@ tbody tr:hover td{background:var(--card2)!important;filter:none}
   <div><span class="hdr-live" id="livebadge"><span class="live-dot"></span><span class="sync-spinner"></span><span class="live-text"></span></span></div>
 </div>
 
-<div class="t-tabs" id="tTabs"></div>
-<div id="regTabBar" style="border-bottom:1px solid var(--border);background:var(--tab-bg);display:flex">
+<div id="regTabBar" style="border-bottom:1px solid var(--border);background:var(--tab-bg);display:flex;flex-wrap:wrap">
   <button class="itab active" id="it-tourney" style="color:var(--gold)" onclick="showTourTab()">🏆 Tournaments</button>
   <button class="itab" id="it-reg" onclick="showRegTab()">🏅 Teams</button>
   <button class="itab" id="it-past" onclick="showPastTab()">🏁 Past Seasons</button>
+  <button class="itab" id="it-treasury" onclick="showTreasuryTab()">🏛️ Award Hall</button>
+  <button class="itab" id="it-signup" onclick="showSignupTab()">📝 Sign Up</button>
 </div>
 
+<div id="secTourList" style="padding:.8rem;display:none"></div>
+<div id="tourNameHeader" class="past-view-header" style="display:none"></div>
 <div class="itabs" id="iTabs" style="display:none">
   <button class="itab active" id="it-table">📊 Table</button>
   <button class="itab" id="it-results">✅ Results</button>
@@ -906,6 +909,8 @@ tbody tr:hover td{background:var(--card2)!important;filter:none}
 
 <div id="secRegistry" style="padding:.8rem;display:none"></div>
 <div id="secPast" style="padding:.8rem;display:none"></div>
+<div id="secTreasury" style="padding:.8rem;display:none"></div>
+<div id="secSignup" style="padding:.8rem;display:none"></div>
 <div id="tourContent" style="display:none">
 
 <div id="secTable"><div class="tbl-outer" id="skelTable">
@@ -968,11 +973,58 @@ var activeTopTab='tourney'; // 'tourney' | 'reg' | 'past' — tracks which top t
 var registryTeams=[];
 
 function getTour(){return db.tournaments.find(function(t){return t.id===activeTid;})||null;}
+
+// Centralized top-level section visibility — every top-tab function MUST go
+// through this so switching tabs never leaves a stale section (e.g. Award Hall)
+// visible underneath another one.
+var TOP_LEVEL_SECTIONS=['secRegistry','secPast','secTreasury','secSignup','secTourList','tourNameHeader','iTabs','tourContent'];
+function hideAllTopSections(){
+  TOP_LEVEL_SECTIONS.forEach(function(id){
+    var el=document.getElementById(id);
+    if(el) el.style.display='none';
+  });
+}
+function setTopTabActive(tab){
+  activeTopTab=tab;
+  ['it-reg','it-past','it-tourney','it-treasury','it-signup'].forEach(function(id){
+    var b=document.getElementById(id);
+    if(b) b.classList.remove('active');
+  });
+  var map={tourney:'it-tourney',reg:'it-reg',past:'it-past',treasury:'it-treasury',signup:'it-signup'};
+  var btn=document.getElementById(map[tab]);
+  if(btn) btn.classList.add('active');
+}
+
 function openTour(tid){
   activeTid=tid;
-  document.querySelectorAll('.t-tab').forEach(function(b){b.classList.toggle('active',b.getAttribute('data-tid')===tid);});
+  hideAllTopSections();
+  setTopTabActive('tourney');
+  var tour=getTour();
+  var tours=(db.tournaments||[]).filter(function(t){return t.status!=='finished';});
+  var showBack=tours.length>1;
+  var hEl=document.getElementById('tourNameHeader');
+  hEl.innerHTML=(showBack?'<button class="past-back" onclick="renderTourList()">&#8592;</button>':'')+
+    '<div class="past-view-name">'+(tour?tour.name:'')+'</div>';
+  hEl.style.display='flex';
   document.getElementById('iTabs').style.display='flex';
+  document.getElementById('tourContent').style.display='block';
   showSec('table');
+}
+
+function renderTourList(){
+  hideAllTopSections();
+  setTopTabActive('tourney');
+  var el=document.getElementById('secTourList');
+  el.style.display='block';
+  var tours=(db.tournaments||[]).filter(function(t){return t.status!=='finished';});
+  var h='<div style="font-family:\'Anton\',sans-serif;font-size:1.2rem;letter-spacing:3px;color:var(--gold);text-align:center;margin-bottom:1rem;text-transform:uppercase">Active Tournaments</div>';
+  tours.forEach(function(t){
+    h+='<div class="past-card" onclick="openTour(\''+t.id+'\')">'+
+      '<div class="past-card-name">'+t.name+'</div>'+
+      '<div class="past-card-meta">'+(t.season||'')+'</div>'+
+      '</div>';
+  });
+  el.innerHTML=h;
 }
 
 function showSec(name){
@@ -999,27 +1051,354 @@ function showSec(name){
 }
 
 function showRegTab(){
-  activeTopTab='reg';
+  hideAllTopSections();
+  setTopTabActive('reg');
   document.getElementById('secRegistry').style.display='block';
-  document.getElementById('secPast').style.display='none';
-  document.getElementById('tourContent').style.display='none';
-  document.getElementById('iTabs').style.display='none';
-  document.getElementById('it-reg').classList.add('active');
-  document.getElementById('it-past').classList.remove('active');
-  document.getElementById('it-tourney').classList.remove('active');
   renderPublicRegistry();
 }
 function showPastTab(){
-  activeTopTab='past';
-  document.getElementById('secRegistry').style.display='none';
+  hideAllTopSections();
+  setTopTabActive('past');
   document.getElementById('secPast').style.display='block';
-  document.getElementById('tourContent').style.display='none';
-  document.getElementById('iTabs').style.display='none';
-  document.getElementById('it-reg').classList.remove('active');
-  document.getElementById('it-past').classList.add('active');
-  document.getElementById('it-tourney').classList.remove('active');
   renderPastSeasons();
 }
+
+function showTreasuryTab(){
+  hideAllTopSections();
+  setTopTabActive('treasury');
+  document.getElementById('secTreasury').style.display='block';
+  renderTreasury();
+}
+
+// ═══════════════════════════════════════════
+// SIGN UP (public self-registration)
+// ═══════════════════════════════════════════
+var signupData={session:null,entries:{}};
+var signupMode='existing'; // 'existing' | 'new'
+var signupPickedTeamId=null;
+
+function showSignupTab(){
+  hideAllTopSections();
+  setTopTabActive('signup');
+  document.getElementById('secSignup').style.display='block';
+  renderSignupTab();
+}
+
+function normPhonePub(p){ return (p||'').replace(/[^0-9]/g,''); }
+
+function renderSignupTab(){
+  var el=document.getElementById('secSignup');
+  if(!signupData.session||!signupData.session.active){
+    el.innerHTML='<div class="empty" style="margin-top:2rem"><div style="font-size:3rem">📝</div>'+
+      '<div style="margin-top:.5rem;font-family:Anton,sans-serif;font-size:1rem;letter-spacing:2px;color:var(--gold)">Sign-Ups Closed</div>'+
+      '<div style="color:var(--muted);margin-top:.4rem;font-size:.8rem">No sign-up round is open right now — check back when the next tournament is announced.</div></div>';
+    return;
+  }
+  var h='<div style="font-family:Anton,sans-serif;font-size:1.1rem;letter-spacing:2px;color:var(--gold);text-align:center;margin-bottom:.3rem">📝 '+signupData.session.title+'</div>';
+  h+='<div style="text-align:center;color:var(--muted);font-size:.72rem;margin-bottom:1.2rem">Register your team below. If your team has played here before, pick it from the list — don\'t create a new one.</div>';
+
+  h+='<div style="display:flex;gap:.5rem;margin-bottom:1rem">'+
+    '<button id="signupModeExisting" class="itab" style="flex:1;border-radius:8px" onclick="setSignupMode(\'existing\')">My team is registered</button>'+
+    '<button id="signupModeNew" class="itab" style="flex:1;border-radius:8px" onclick="setSignupMode(\'new\')">My team is new</button>'+
+  '</div>';
+
+  h+='<div id="signupFormBody"></div>';
+  h+='<div id="signupResultBox" style="margin-top:1rem"></div>';
+  el.innerHTML=h;
+  setSignupMode('existing');
+}
+
+function setSignupMode(mode){
+  signupMode=mode;
+  signupPickedTeamId=null;
+  document.getElementById('signupModeExisting').style.background=mode==='existing'?'rgba(201,168,76,.15)':'';
+  document.getElementById('signupModeExisting').style.color=mode==='existing'?'var(--gold)':'';
+  document.getElementById('signupModeNew').style.background=mode==='new'?'rgba(201,168,76,.15)':'';
+  document.getElementById('signupModeNew').style.color=mode==='new'?'var(--gold)':'';
+  document.getElementById('signupResultBox').innerHTML='';
+
+  var body=document.getElementById('signupFormBody');
+  if(mode==='existing'){
+    body.innerHTML='<label class="lbl">Search your team</label>'+
+      '<input type="text" id="signupTeamSearch" placeholder="Start typing your team name..." oninput="signupSearchTeams(this.value)" autocomplete="off" style="margin-bottom:.4rem">'+
+      '<div id="signupTeamResults" style="max-height:220px;overflow-y:auto;margin-bottom:.8rem"></div>'+
+      '<div id="signupPickedTeam" style="display:none;background:rgba(201,168,76,.08);border:1px solid rgba(201,168,76,.3);border-radius:8px;padding:.6rem .8rem;margin-bottom:.8rem"></div>'+
+      '<label class="lbl">Your Nickname / Username</label>'+
+      '<input type="text" id="signupNickname" placeholder="Your in-game or community name" autocomplete="off" style="margin-bottom:.6rem">'+
+      '<label class="lbl">WhatsApp Number</label>'+
+      '<input type="tel" id="signupPhone" placeholder="e.g. 08012345678" autocomplete="off" style="margin-bottom:1rem">'+
+      '<button class="btn-full btn-gold" onclick="submitSignup()">✅ CONFIRM SIGN-UP</button>';
+  } else {
+    body.innerHTML='<label class="lbl">Team Name</label>'+
+      '<input type="text" id="signupNewTeamName" placeholder="e.g. FC Elite United" oninput="signupCheckNewName(this.value)" autocomplete="off" style="margin-bottom:.3rem">'+
+      '<div id="signupNameWarning" style="font-size:.72rem;color:#ffaa00;margin-bottom:.6rem"></div>'+
+      '<label class="lbl">Your Nickname / Username</label>'+
+      '<input type="text" id="signupNickname" placeholder="Your in-game or community name" autocomplete="off" style="margin-bottom:.6rem">'+
+      '<label class="lbl">WhatsApp Number</label>'+
+      '<input type="tel" id="signupPhone" placeholder="e.g. 08012345678" autocomplete="off" style="margin-bottom:1rem">'+
+      '<button class="btn-full btn-gold" onclick="submitSignup()">✅ CONFIRM SIGN-UP</button>';
+  }
+}
+
+function signupSearchTeams(q){
+  var box=document.getElementById('signupTeamResults');
+  q=(q||'').trim().toLowerCase();
+  if(!q){ box.innerHTML=''; return; }
+  var matches=(registryTeams||[]).filter(function(t){return t.name.toLowerCase().indexOf(q)!==-1;}).slice(0,12);
+  if(!matches.length){
+    box.innerHTML='<div style="font-size:.75rem;color:var(--muted);padding:.4rem">No matching team — double check spelling, or switch to "My team is new" if it really isn\'t registered.</div>';
+    return;
+  }
+  box.innerHTML=matches.map(function(t){
+    var src=t.logoFilename?GITHUB_LOGOS_BASE+t.logoFilename:(t.logoUrl||null);
+    return '<div style="display:flex;align-items:center;gap:.6rem;padding:.5rem .6rem;border:1px solid var(--border);border-radius:7px;margin-bottom:.3rem;cursor:pointer" onclick="pickSignupTeam(\''+t.id+'\')">'+
+      (src?'<img src="'+src+'" style="width:26px;height:26px;object-fit:contain">':'<span>⚽</span>')+
+      '<span style="font-size:.85rem">'+t.name+'</span>'+
+    '</div>';
+  }).join('');
+}
+function pickSignupTeam(tid){
+  signupPickedTeamId=tid;
+  var t=registryTeams.find(function(x){return x.id===tid;});
+  if(!t) return;
+  document.getElementById('signupTeamResults').innerHTML='';
+  document.getElementById('signupTeamSearch').value=t.name;
+  var box=document.getElementById('signupPickedTeam');
+  box.style.display='block';
+  box.innerHTML='<strong style="color:var(--gold)">✓ '+t.name+'</strong> selected';
+}
+
+function signupCheckNewName(name){
+  var warn=document.getElementById('signupNameWarning');
+  name=(name||'').trim().toLowerCase();
+  if(!name){ warn.innerHTML=''; return; }
+  var existing=(registryTeams||[]).find(function(t){return t.name.toLowerCase()===name;});
+  if(existing){
+    warn.innerHTML='⚠️ "'+existing.name+'" is already registered — switch to "My team is registered" and pick it from the list instead.';
+  } else {
+    warn.innerHTML='';
+  }
+}
+
+function submitSignup(){
+  var nickname=(document.getElementById('signupNickname').value||'').trim();
+  var phone=(document.getElementById('signupPhone').value||'').trim();
+  if(!nickname||!phone){ document.getElementById('signupResultBox').innerHTML='<div class="info" style="color:#ff6b6b">Please fill in your nickname and WhatsApp number.</div>'; return; }
+  if(normPhonePub(phone).length<7){ document.getElementById('signupResultBox').innerHTML='<div class="info" style="color:#ff6b6b">That WhatsApp number looks too short — double check it.</div>'; return; }
+
+  var teamName, registryTeamId=null, status, note;
+
+  if(signupMode==='existing'){
+    if(!signupPickedTeamId){ document.getElementById('signupResultBox').innerHTML='<div class="info" style="color:#ff6b6b">Search and select your team from the list first.</div>'; return; }
+    var rt=registryTeams.find(function(x){return x.id===signupPickedTeamId;});
+    if(!rt) return;
+    teamName=rt.name; registryTeamId=rt.id;
+    if(!rt.whatsapp){
+      status='review'; note='No WhatsApp number on file yet for this team — first-time check';
+    } else if(normPhonePub(rt.whatsapp)===normPhonePub(phone)){
+      status='confirmed'; note='';
+    } else {
+      status='review'; note='Number doesn\'t match what\'s on file for this team';
+    }
+  } else {
+    teamName=(document.getElementById('signupNewTeamName').value||'').trim();
+    if(!teamName){ document.getElementById('signupResultBox').innerHTML='<div class="info" style="color:#ff6b6b">Enter your team name.</div>'; return; }
+    var dup=(registryTeams||[]).find(function(t){return t.name.toLowerCase()===teamName.toLowerCase();});
+    if(dup){ document.getElementById('signupResultBox').innerHTML='<div class="info" style="color:#ff6b6b">That team is already registered — switch to "My team is registered" instead.</div>'; return; }
+    // Also check nobody else already claimed this exact new name in this same round
+    var already=Object.keys(signupData.entries||{}).map(function(k){return signupData.entries[k];})
+      .find(function(e){return e.teamName.toLowerCase()===teamName.toLowerCase()&&e.status!=='rejected';});
+    if(already){ status='review'; note='Someone else already signed up this exact team name in this round'; }
+    else { status='confirmed'; note=''; }
+  }
+
+  var entry={
+    id:'su_'+Date.now()+'_'+Math.floor(Math.random()*1e6),
+    teamName:teamName, registryTeamId:registryTeamId,
+    coach:nickname, whatsapp:phone, status:status, note:note,
+    createdAt:Date.now()
+  };
+  signupData.entries[entry.id]=entry;
+  if(fbDb) fbDb.ref('signups/entries/'+entry.id).set(entry).catch(function(){});
+
+  var box=document.getElementById('signupResultBox');
+  if(status==='confirmed'){
+    box.innerHTML='<div style="background:rgba(46,196,120,.1);border:1px solid rgba(46,196,120,.4);border-radius:10px;padding:.9rem;text-align:center"><strong style="color:var(--green)">✅ You\'re in!</strong><div style="font-size:.75rem;color:var(--muted);margin-top:.3rem">'+teamName+' is confirmed for '+signupData.session.title+'. Groups will be announced soon.</div></div>';
+  } else {
+    box.innerHTML='<div style="background:rgba(255,170,0,.1);border:1px solid rgba(255,170,0,.4);border-radius:10px;padding:.9rem;text-align:center"><strong style="color:#ffaa00">⏳ Pending admin review</strong><div style="font-size:.75rem;color:var(--muted);margin-top:.3rem">'+note+'. The admin will confirm this shortly.</div></div>';
+  }
+}
+
+var AWARD_TYPE_LABELS_PUB={'trophy_1st':'🏆 Champion Trophy','medal_1st':'🥇 Gold Medal','medal_2nd':'🥈 Silver Medal','medal_3rd':'🥉 Bronze Medal','golden_boot':'👟 Golden Boot','best_defense':'🛡️ Best Defense','custom':'🎖️ Custom'};
+var AWARD_TYPE_COLORS_PUB={'trophy_1st':'#c9a84c','medal_1st':'#ffd700','medal_2nd':'#c0c0c0','medal_3rd':'#cd7f32','golden_boot':'#ff6b35','best_defense':'#4db8ff','custom':'#c9a84c'};
+
+function renderTreasury(){
+  var el=document.getElementById('secTreasury');
+  var awards=db.awards||[];
+  if(!awards.length){
+    el.innerHTML='<div class="empty" style="margin-top:2rem"><div style="font-size:3rem">🏛️</div><div style="margin-top:.5rem;font-family:Anton,sans-serif;font-size:1rem;letter-spacing:2px;color:var(--gold)">Award Hall</div><div style="color:var(--muted);margin-top:.4rem;font-size:.8rem">No awards yet — the admin will add them after each tournament.</div></div>';
+    return;
+  }
+  var typeLabels=AWARD_TYPE_LABELS_PUB;
+  var typeColors=AWARD_TYPE_COLORS_PUB;
+
+  // Group by type for sections. Champion Trophy and Gold Medal are merged —
+  // for a given tournament these are almost always the same recipient, so
+  // showing them as two separate cards is just noise.
+  var sections={'champions':[],'medal_2nd':[],'medal_3rd':[],'golden_boot':[],'best_defense':[],'custom':[]};
+  var trophy1st=awards.filter(function(a){return a.type==='trophy_1st';});
+  var medal1st=awards.filter(function(a){return a.type==='medal_1st';});
+  var usedMedalIds={};
+  trophy1st.forEach(function(t){
+    var pairedMedal=medal1st.find(function(m){
+      if(usedMedalIds[m.id]) return false;
+      if(t.tournamentId&&m.tournamentId) return String(t.tournamentId)===String(m.tournamentId);
+      return t.recipient&&m.recipient&&t.recipient.trim().toLowerCase()===m.recipient.trim().toLowerCase()&&t.season===m.season;
+    });
+    if(pairedMedal) usedMedalIds[pairedMedal.id]=true;
+    sections.champions.push(Object.assign({},t,{_pairedMedal:pairedMedal||null}));
+  });
+  medal1st.forEach(function(m){ if(!usedMedalIds[m.id]) sections.champions.push(m); });
+  awards.forEach(function(a){
+    if(a.type==='trophy_1st'||a.type==='medal_1st') return;
+    if(sections[a.type]) sections[a.type].push(a); else sections.custom.push(a);
+  });
+  var sectionLabels={'champions':'🏆 Champions','medal_2nd':typeLabels.medal_2nd,'medal_3rd':typeLabels.medal_3rd,'golden_boot':typeLabels.golden_boot,'best_defense':typeLabels.best_defense,'custom':typeLabels.custom};
+  var sectionColors={'champions':typeColors.trophy_1st,'medal_2nd':typeColors.medal_2nd,'medal_3rd':typeColors.medal_3rd,'golden_boot':typeColors.golden_boot,'best_defense':typeColors.best_defense,'custom':typeColors.custom};
+
+  var h='<div style="font-family:Anton,sans-serif;font-size:1.2rem;letter-spacing:3px;color:var(--gold);text-align:center;margin-bottom:1.2rem">🏛️ AWARD HALL</div>';
+
+  Object.keys(sections).forEach(function(type){
+    var items=sections[type];
+    if(!items.length)return;
+    var col=sectionColors[type]||'#c9a84c';
+    h+='<div style="margin-bottom:1.4rem"><div style="font-family:Anton,sans-serif;font-size:.7rem;letter-spacing:3px;color:'+col+';text-transform:uppercase;margin-bottom:.6rem;padding-bottom:.4rem;border-bottom:1px solid rgba(201,168,76,.15)">'+(sectionLabels[type]||type)+'</div>';
+    h+='<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:.6rem">';
+    items.forEach(function(a){
+      var badge=a._pairedMedal?'<div style="font-size:.55rem;color:#ffd700;margin-top:.2rem">🥇 + Gold Medal</div>':'';
+      h+='<div style="background:rgba(255,255,255,.03);border:1px solid rgba(201,168,76,.15);border-radius:12px;padding:.8rem;text-align:center;position:relative;overflow:hidden;cursor:pointer" onclick="openAwardShowcase(\''+a.id+'\')">'+
+        '<div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,'+col+',transparent)"></div>'+
+        (a.img?'<img src="'+a.img+'" style="width:84px;height:84px;object-fit:contain;border-radius:8px;margin-bottom:.5rem">':'<div style="font-size:2.8rem;margin-bottom:.4rem">'+(typeLabels[a.type]||'🏅').split(' ')[0]+'</div>')+
+        '<div style="font-family:Anton,sans-serif;font-size:.82rem;color:'+col+';letter-spacing:.5px;line-height:1.2;margin-bottom:.3rem">'+a.recipient+'</div>'+
+        '<div style="font-size:.6rem;color:var(--muted)">'+a.name+'</div>'+
+        (a.season?'<div style="font-size:.55rem;color:rgba(201,168,76,.5);margin-top:.2rem">'+a.season+(a.year?' · '+a.year:'')+'</div>':'')+
+        badge+
+      '</div>';
+    });
+    h+='</div></div>';
+  });
+  el.innerHTML=h;
+}
+
+// Find the recipient's actual record in the linked tournament, matched by name
+// (awards only store the recipient's name, not a team id).
+function findAwardTeam(tour,recipientName){
+  if(!tour||!recipientName) return null;
+  return (tour.teams||[]).find(function(x){return x.name&&x.name.trim().toLowerCase()===recipientName.trim().toLowerCase();})||null;
+}
+function findByRecipient(rankedArr,recipientName){
+  if(!recipientName) return -1;
+  return rankedArr.findIndex(function(x){return x.name&&x.name.trim().toLowerCase()===recipientName.trim().toLowerCase();});
+}
+
+// Build a short, factual "how they won it" line from real tournament data —
+// never a guess or generic filler. Golden Boot / Best Defense compare against
+// the rest of the field rather than stating the number in isolation.
+function getAwardBlurb(a){
+  var tour=a.tournamentId?db.tournaments.find(function(t){return t.id===a.tournamentId;}):null;
+  if(!tour) return '';
+  if(a.type==='trophy_1st'){
+    if(tour.bracketRounds&&tour.bracketRounds.length){
+      var frs=tour.bracketRounds.filter(function(r){return r.matches&&r.matches[0]&&!r.matches[0].is3rd;});
+      var fr=frs[frs.length-1];
+      var m=fr&&fr.matches[0];
+      if(m&&m.winner&&m.loser){
+        var t1IsWinner=m.t1&&String(m.t1.id)===String(m.winner.id);
+        var wScore=t1IsWinner?m.leg1h:m.leg1a;
+        var lScore=t1IsWinner?m.leg1a:m.leg1h;
+        if(wScore!=null&&lScore!=null) return 'Won the Final '+wScore+'–'+lScore+' vs '+m.loser.name;
+      }
+    }
+    return 'Crowned champions of '+tour.name;
+  }
+  if(a.type==='golden_boot'){
+    var ranking=getTeamGoalsRanking(tour);
+    var idx=findByRecipient(ranking,a.recipient);
+    if(idx===-1||!ranking.length) return '';
+    var top=ranking[idx];
+    if(idx===0){
+      var second=ranking[1];
+      var margin=second?top.totalGoals-second.totalGoals:top.totalGoals;
+      return second
+        ? top.totalGoals+' goals — '+margin+' more than the next best ('+second.name+', '+second.totalGoals+')'
+        : top.totalGoals+' goals scored, the most in the tournament';
+    }
+    // Award given to a team that isn't the top scorer per this calc — still
+    // state the real number rather than pretending they're #1.
+    return top.totalGoals+' goals scored ('+(idx+1)+'th highest in the tournament)';
+  }
+  if(a.type==='best_defense'){
+    var dRank=getDefenseRanking(tour);
+    var dIdx=findByRecipient(dRank,a.recipient);
+    if(dIdx===-1||!dRank.length) return '';
+    var teamD=dRank[dIdx];
+    var closeRivals=dRank.filter(function(x,i){return i!==dIdx;}).slice(0,3);
+    var line='Only '+teamD.conceded+' goals conceded in '+teamD.played+' matches ('+teamD.cleanSheets+' clean sheet'+(teamD.cleanSheets===1?'':'s')+')';
+    if(closeRivals.length){
+      line+='<br><span style="font-size:.68rem;opacity:.75">Closest: '+closeRivals.map(function(x){return x.name+' ('+x.conceded+')';}).join(' · ')+'</span>';
+    }
+    return line;
+  }
+  if(a.type==='medal_1st'||a.type==='medal_2nd'||a.type==='medal_3rd'){
+    var tm2=findAwardTeam(tour,a.recipient);
+    if(tm2) return tm2.played+' matches played · '+tm2.won+'W '+tm2.drawn+'D '+tm2.lost+'L';
+  }
+  return '';
+}
+
+// Jump from the showcase straight to the relevant in-tournament tab.
+function goToAwardTourSection(tourId,section){
+  closeAwardShowcase();
+  if(tourId) openTour(tourId);
+  showSec(section);
+}
+
+function openAwardShowcase(id){
+  var a=(db.awards||[]).find(function(x){return x.id===id;});
+  if(!a) return;
+  var col=AWARD_TYPE_COLORS_PUB[a.type]||'#c9a84c';
+  var label=AWARD_TYPE_LABELS_PUB[a.type]||a.type;
+  var blurb=getAwardBlurb(a);
+  var pairedMedal=null;
+  if(a.type==='trophy_1st'){
+    pairedMedal=(db.awards||[]).find(function(m){
+      if(m.type!=='medal_1st') return false;
+      if(a.tournamentId&&m.tournamentId) return String(a.tournamentId)===String(m.tournamentId);
+      return m.recipient&&a.recipient&&m.recipient.trim().toLowerCase()===a.recipient.trim().toLowerCase()&&m.season===a.season;
+    });
+  }
+  var actionBtn='';
+  if(a.type==='trophy_1st'&&a.tournamentId){
+    actionBtn='<button onclick="goToAwardTourSection(\''+a.tournamentId+'\',\'playoffs\')" style="background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.4);color:var(--gold);font-family:Oswald,sans-serif;font-size:.68rem;letter-spacing:1px;padding:.55rem 1rem;border-radius:8px;cursor:pointer;margin-top:.6rem">🏟 VIEW KNOCKOUT BRACKET</button>';
+  } else if(a.type==='golden_boot'&&a.tournamentId){
+    actionBtn='<button onclick="goToAwardTourSection(\''+a.tournamentId+'\',\'goals\')" style="background:rgba(255,107,53,.12);border:1px solid rgba(255,107,53,.4);color:#ff6b35;font-family:Oswald,sans-serif;font-size:.68rem;letter-spacing:1px;padding:.55rem 1rem;border-radius:8px;cursor:pointer;margin-top:.6rem">🥅 VIEW GOAL RANKINGS</button>';
+  }
+  var body='<div style="text-align:center;padding:.5rem 0 1rem">'+
+    (a.img?'<img src="'+a.img+'" style="width:180px;height:180px;object-fit:contain;margin-bottom:1.1rem;filter:drop-shadow(0 10px 28px rgba(0,0,0,.55))">':'<div style="font-size:5rem;margin-bottom:.6rem">'+label.split(' ')[0]+'</div>')+
+    '<div style="font-family:Anton,sans-serif;font-size:.68rem;letter-spacing:3px;color:'+col+';text-transform:uppercase;margin-bottom:.5rem">'+label+(pairedMedal?' + 🥇 Gold Medal':'')+'</div>'+
+    '<div style="font-family:Anton,sans-serif;font-size:1.5rem;color:var(--gold);letter-spacing:1px;margin-bottom:.3rem">'+a.recipient+'</div>'+
+    '<div style="font-size:.85rem;color:var(--text);margin-bottom:.6rem">'+a.name+'</div>'+
+    (blurb?'<div style="font-size:.78rem;color:var(--muted);background:rgba(255,255,255,.03);border:1px solid rgba(201,168,76,.15);border-radius:10px;padding:.65rem .9rem;margin:.4rem auto .3rem;max-width:320px;line-height:1.5">'+blurb+'</div>':'')+
+    (a.season?'<div style="font-size:.7rem;color:rgba(201,168,76,.6);margin-top:.5rem">'+a.season+(a.year?' · '+a.year:'')+'</div>':'')+
+    actionBtn+
+  '</div>';
+  document.getElementById('awardShowcaseBody').innerHTML=body;
+  document.getElementById('awardShowcasePanel').style.display='block';
+}
+function closeAwardShowcase(){
+  document.getElementById('awardShowcasePanel').style.display='none';
+}
+
 
 function renderPastSeasons(){
   var el=document.getElementById('secPast');
@@ -1084,19 +1463,20 @@ function showPastSec(tid,name,btn){
 }
 
 function showTourTab(){
-  activeTopTab='tourney';
-  document.getElementById('secRegistry').style.display='none';
-  document.getElementById('secPast').style.display='none';
-  document.getElementById('tourContent').style.display='block';
-  document.getElementById('it-reg').classList.remove('active');
-  document.getElementById('it-past').classList.remove('active');
-  document.getElementById('it-tourney').classList.add('active');
-  if(activeTid){
-    document.getElementById('iTabs').style.display='flex';
-    showSec('table');
-  } else {
-    document.getElementById('iTabs').style.display='none';
+  hideAllTopSections();
+  setTopTabActive('tourney');
+  var tours=(db.tournaments||[]).filter(function(t){return t.status!=='finished';});
+  if(!tours.length){
+    document.getElementById('tourContent').style.display='block';
     document.getElementById('secTable').innerHTML='<div class="empty"><div class="empty-icon">🏆</div>No tournaments yet</div>';
+    return;
+  }
+  if(tours.length===1){
+    openTour(tours[0].id);
+  } else if(activeTid && tours.some(function(t){return t.id===activeTid;})){
+    openTour(activeTid);
+  } else {
+    renderTourList();
   }
 }
 
@@ -1295,13 +1675,25 @@ function resolveRegTeam(tournamentTeam){
 }
 
 function calcPrediction(teamA,teamB,tourMatches){
+  // Collect form data across ALL tournaments for richer prediction
+  var allTourMatches=[];
+  (db.tournaments||[]).forEach(function(t){
+    (t.matches||[]).filter(function(m){return m.done;}).forEach(function(m){allTourMatches.push(m);});
+    (t.bracketRounds||[]).forEach(function(r){
+      r.matches.filter(function(m){return m.done&&m.t1&&m.t2;}).forEach(function(m){
+        allTourMatches.push({done:true,homeId:m.t1.id,awayId:m.t2.id,
+          homeScore:(m.leg1h||0)+(m.et1h||0),awayScore:(m.leg1a||0)+(m.et1a||0)});
+      });
+    });
+  });
+  var combined=allTourMatches.length?allTourMatches:(tourMatches||[]);
   function getRes(team){
-    var pl=(tourMatches||[]).filter(function(m){return m.done&&(m.homeId===team.id||m.awayId===team.id);});
+    var pl=combined.filter(function(m){return m.done&&(m.homeId===team.id||m.awayId===team.id);});
     var w=0,d=0,l=0;
     pl.forEach(function(m){
       var ih=m.homeId===team.id;
-      var gf=ih?m.homeScore:m.awayScore;
-      var ga=ih?m.awayScore:m.homeScore;
+      var gf=ih?(m.homeScore!=null?m.homeScore:(m.leg1h||0)):(m.awayScore!=null?m.awayScore:(m.leg1a||0));
+      var ga=ih?(m.awayScore!=null?m.awayScore:(m.leg1a||0)):(m.homeScore!=null?m.homeScore:(m.leg1h||0));
       if(gf>ga)w++;else if(gf===ga)d++;else l++;
     });
     return{w:w,d:d,l:l,total:pl.length};
@@ -1380,7 +1772,7 @@ function buildRegStats(regTeamId){
         var venueLabel=ih?' <span style="font-size:.55rem;color:var(--muted)">(H)</span>':' <span style="font-size:.55rem;color:var(--muted)">(A)</span>';
         schedHtml+='<div class="ms-match"><div class="ms-badge upcoming">VS</div><div class="ms-teams">vs <strong>'+oppName+'</strong>'+venueLabel+'</div>'+(m.round?'<div class="ms-date">'+m.round+'</div>':'')+'</div>';
         // Prediction only for the NEXT match (first upcoming)
-        if(mi===0&&tour.showPredictions&&oppTeam){
+        if(mi===0&&db.showPredictions&&oppTeam){
           var pred=calcPrediction(tourTeam,oppTeam,allMatches);
           if(pred){
             var hName=ih?tourTeam.name:oppTeam.name;
@@ -1487,71 +1879,63 @@ function normalizeTour(t){
 
 function fetchFromFirebase(){
   syncStart();
+  var loadedAwards=[];
   // Load registry FIRST so logos are ready before the table renders
   fbDb.ref('registry').once('value').then(function(regSnap){
     var regData=regSnap.val();
     registryTeams=regData?Object.values(regData):[];
-    // Now fetch tournaments — registry is already populated
+    return fbDb.ref('awards').once('value');
+  }).then(function(awardsSnap){
+    var awardsData=awardsSnap.val();
+    loadedAwards=awardsData?Object.values(awardsData):[];
+    return fbDb.ref('signups').once('value');
+  }).then(function(signupsSnap){
+    var signupsVal=signupsSnap.val();
+    signupData.session=(signupsVal&&signupsVal.session)?signupsVal.session:null;
+    signupData.entries=(signupsVal&&signupsVal.entries)?signupsVal.entries:{};
     return fbDb.ref('tournaments').once('value');
   }).then(function(snap){
     var data=snap.val();
     syncEnd();
     var tours=data?Object.values(data):[];
     tours.forEach(normalizeTour);
-    db={tournaments:tours};
+    db={tournaments:tours,awards:loadedAwards};
 
+    var liveTours=tours.filter(function(t){return t.status!=='finished';});
     var allFinished=tours.length>0&&tours.every(function(t){return t.status==='finished';});
-    // First load: activeTid is still null and user hasn't navigated anywhere
-    var isFirstLoad=!activeTid;
+    // Keep activeTid pointed at a valid live tournament if possible
+    if(!activeTid||!liveTours.some(function(t){return t.id===activeTid;})){
+      activeTid=liveTours.length?liveTours[0].id:null;
+    }
+    // First load: user hasn't navigated anywhere yet
+    var isFirstLoad=!fetchFromFirebase._hasLoadedOnce;
+    fetchFromFirebase._hasLoadedOnce=true;
 
     if(isFirstLoad){
-      renderTournamentTabs();
       if(allFinished){
         showPastTab();
-      } else if(activeTid){
-        activeTopTab='tourney';
-        document.getElementById('secRegistry').style.display='none';
-        document.getElementById('secPast').style.display='none';
-        document.getElementById('tourContent').style.display='block';
-        document.getElementById('it-reg').classList.remove('active');
-        document.getElementById('it-past').classList.remove('active');
-        document.getElementById('it-tourney').classList.add('active');
-        document.getElementById('iTabs').style.display='flex';
-        render(activeSection);
+      } else if(liveTours.length){
+        showTourTab();
       } else {
-        activeTopTab='reg';
-        document.getElementById('secRegistry').style.display='block';
-        document.getElementById('secPast').style.display='none';
-        document.getElementById('tourContent').style.display='none';
-        document.getElementById('it-reg').classList.add('active');
-        document.getElementById('it-past').classList.remove('active');
-        document.getElementById('it-tourney').classList.remove('active');
-        renderPublicRegistry();
+        showRegTab();
       }
     } else {
       // Silent background refresh — stay exactly where the user is
-      renderTournamentTabs();
       if(activeTopTab==='tourney'){
-        var stillExists=tours.find(function(t){return t.id===activeTid;});
-        if(!stillExists){
-          // Tournament was deleted — gracefully fall back to registry
-          activeTid=tours.length?tours[0].id:null;
-          activeTopTab='reg';
-          document.getElementById('secRegistry').style.display='block';
-          document.getElementById('secPast').style.display='none';
-          document.getElementById('tourContent').style.display='none';
-          document.getElementById('it-reg').classList.add('active');
-          document.getElementById('it-past').classList.remove('active');
-          document.getElementById('it-tourney').classList.remove('active');
-          renderPublicRegistry();
-        } else {
-          // Silently re-render current inner section — no tab change
+        var stillExists=liveTours.find(function(t){return t.id===activeTid;});
+        if(!stillExists && liveTours.length===0){
+          showRegTab();
+        } else if(document.getElementById('tourContent').style.display!=='none'){
+          // A specific tournament is open — silently re-render its current section
           render(activeSection);
         }
+        // else: user is on the multi-tournament list view — list refreshes next visit
       } else if(activeTopTab==='reg'){
         renderPublicRegistry();
       } else if(activeTopTab==='past'){
         renderPastSeasons();
+      } else if(activeTopTab==='treasury'){
+        renderTreasury();
       }
     }
 
@@ -1575,26 +1959,6 @@ function init(){
 function openTeamProfileWithHistory(opts){
   history.pushState({teamProfile:true},'');
   openTeamProfile(opts);
-}
-
-// ── Tournament tabs ────────────────────────────────────────────
-function renderTournamentTabs(){
-  var tabs=document.getElementById('tTabs');
-  var allTours=db.tournaments;
-  var tours=allTours.filter(function(t){return t.status!=='finished';});
-  if(!tours||!tours.length){
-    tabs.innerHTML='';
-    if(activeTid){var active=allTours.find(function(t){return t.id===activeTid;});if(!active||active.status==='finished')activeTid=null;}
-    return;
-  }
-  if(!activeTid){activeTid=tours[0].id;}
-  else{var cur=allTours.find(function(t){return t.id===activeTid;});if(!cur||cur.status==='finished')activeTid=tours[0].id;}
-  tabs.innerHTML=tours.map(function(t){
-    return '<button class="t-tab'+(activeTid===t.id?' active':'')+'" data-tid="'+t.id+'">'+t.name+'</button>';
-  }).join('');
-  tabs.querySelectorAll('.t-tab').forEach(function(btn){
-    btn.addEventListener('click',function(){openTour(btn.getAttribute('data-tid'));});
-  });
 }
 
 function render(name){
@@ -1757,7 +2121,7 @@ function renderTable(){
           var zone=qualified?'z-w':'z-e';
           var topBorder=(i===gThird&&i>0)?'border-top:2px dashed rgba(255,59,92,.25)':'';
           var regT=resolveRegTeam(t);
-          html+='<tr class="'+zone+'" style="'+topBorder+'">'+
+          html+='<tr class="'+zone+'" style="'+topBorder+';cursor:pointer" onclick="openTeamProfileWithHistory({type:\'tournament\',teamId:\''+t.id+'\',tourId:\''+tour.id+'\'})">'+
             '<td><span class="rank-num">'+(i+1)+(qualified?' ✓':' ✗')+'</span></td>'+
             '<td><div style="display:flex;align-items:center;gap:.5rem">'+logoImg(t.name,20,regT)+
             '<strong style="font-family:\'DM Sans\',sans-serif;font-weight:700">'+t.name+'</strong></div></td>'+
@@ -1814,7 +2178,7 @@ function buildTable(tour,teams){
     var regT=resolveRegTeam(t);
     var medal=i===0?' 🥇':i===1?' 🥈':i===2?' 🥉':'';
     var rankBadge='<span class="rank-num">'+pos+medal+'</span>';
-    h+='<tr class="'+zone+' " style="'+topBorder+'">'+
+    h+='<tr class="'+zone+' " style="'+topBorder+';cursor:pointer" onclick="openTeamProfileWithHistory({type:\'tournament\',teamId:\''+t.id+'\',tourId:\''+tour.id+'\'})">'+
       '<td>'+rankBadge+'</td>'+
       '<td><div style="display:flex;align-items:center;gap:.5rem">'+logoImg(t.name,22,regT)+'<strong style="font-family:\'DM Sans\',sans-serif;font-weight:700">'+t.name+'</strong></div></td>'+
       '<td class="num">'+t.played+'</td>'+
@@ -1854,7 +2218,7 @@ function renderResults(){
     var t1Reg=resolveRegTeam(t1TourTeam), t2Reg=resolveRegTeam(t2TourTeam);
     var t1Coach=getCoachById(t1Id)||getCoach(t1Name);
     var t2Coach=getCoachById(t2Id)||getCoach(t2Name);
-    return '<div class="r-item">'+
+    return '<div class="r-item" onclick="openMatchPreview(\''+t1Id+'\',\''+t2Id+'\',null,\''+(tour?tour.id:'')+'\');" style="cursor:pointer">'+
       '<div class="r-matchup">'+
       '<div class="r-home-side">'+
       '<div style="display:flex;align-items:center;gap:.4rem;margin-bottom:.2rem">'+logoImg(t1Name,24,t1Reg)+
@@ -2014,7 +2378,11 @@ function buildFixCard(homeName,awayName,date,extraLabel,match){
   var awayTourTeam=(match&&tour)?(tour.teams.find(function(t){return t.id===match.awayId;})||{name:awayName}):{name:awayName};
   var homeReg=resolveRegTeam(homeTourTeam);
   var awayReg=resolveRegTeam(awayTourTeam);
-  return '<div class="fix-item">'+
+  var homeId = match&&match.homeId?match.homeId:'';
+  var awayId = match&&match.awayId?match.awayId:'';
+  var tourId = tour?tour.id:'';
+  var clickAttr = (homeId&&awayId)?'onclick="openMatchPreview(\''+homeId+'\',\''+awayId+'\',null,\''+tourId+'\')" style="cursor:pointer"':'';
+  return '<div class="fix-item" '+clickAttr+'>'+
     '<div class="fix-header">'+
     '<div class="fix-team-side fix-home">'+
     '<div style="display:flex;align-items:center;gap:.35rem">'+logoImg(homeName,22,homeReg)+
@@ -2187,7 +2555,7 @@ function renderPlayoffs(){
     }).join('');
     var fm=finalRound.matches[0];
     var champion=fm&&fm.winner?fm.winner.name:null;
-    var cupSrc=tour.winnerTrophyImg||'efh_cup.png';
+    var cupSrc=getAwardImage(tour,'trophy_1st',tour.winnerTrophyImg,'efh_cup.png');
     var centerHtml='<div class="vlb-center">'
       +'<div class="vlb-round-label">FINAL</div>'
       +'<div class="vlb-final-row">'
@@ -2249,7 +2617,10 @@ function renderPlayoffs(){
           +'padding:.1rem .3rem;border-radius:4px;background:'+scoreBg+';color:'+scorec+'">'+(sc||'–')+'</span>'
         +'</div>';
     }
-    var card='<div style="background:'+bgCol+';border:1.5px solid '+borderCol+';border-radius:12px;overflow:hidden;box-shadow:'+shadow+';position:relative">';
+    var t1Id=m.t1?m.t1.id:'', t2Id=m.t2?m.t2.id:'';
+    var tourIdVC=tour?tour.id:'';
+    var clickVC=(t1Id&&t2Id&&!isTbd)?'onclick="openMatchPreview(\''+t1Id+'\',\''+t2Id+'\',null,\''+tourIdVC+'\')" style="background:'+bgCol+';border:1.5px solid '+borderCol+';border-radius:12px;overflow:hidden;box-shadow:'+shadow+';position:relative;cursor:pointer"':'style="background:'+bgCol+';border:1.5px solid '+borderCol+';border-radius:12px;overflow:hidden;box-shadow:'+shadow+';position:relative"';
+    var card='<div '+clickVC+'>';
     if(m.done) card+='<div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,rgba(201,168,76,.8),transparent)"></div>';
     card+=teamRow(t1n,score1,w1);
     card+='<div style="height:1px;background:rgba(255,255,255,.07);margin:0 .75rem"></div>';
@@ -2533,7 +2904,8 @@ function updateWinnerTicker(){
 function updateTrophySplash(tour){
   var splash=document.getElementById('trophySplash');
   if(!splash) return;
-  if(!tour||!tour.winnerTickerOn||!tour.winnerTrophyImg){splash.style.display='none';return;}
+  var imgSrc=tour?getAwardImage(tour,'trophy_1st',tour.winnerTrophyImg,null):null;
+  if(!tour||!tour.winnerTickerOn||!imgSrc){splash.style.display='none';return;}
   var wn='';
   if(tour.bracketRounds&&tour.bracketRounds.length){
     var frs=tour.bracketRounds.filter(function(r){return r.matches[0]&&!r.matches[0].is3rd;});
@@ -2542,7 +2914,7 @@ function updateTrophySplash(tour){
   }
   splash.innerHTML='<div style="text-align:center;padding:1.2rem .8rem 0">'+
     '<div style="font-family:\'Oswald\',sans-serif;font-size:.72rem;letter-spacing:3px;color:var(--gold);margin-bottom:.5rem;text-shadow:0 0 12px rgba(201,168,76,.6);text-transform:uppercase">🏆 '+(tour.name||'EFH')+' Champion 🏆</div>'+
-    '<img src="'+tour.winnerTrophyImg+'" alt="Winner Trophy" style="width:70%;max-width:260px;height:auto;object-fit:contain;display:block;margin:0 auto;filter:drop-shadow(0 0 22px rgba(201,168,76,0.95)) drop-shadow(0 0 45px rgba(201,168,76,0.55));animation:trophyGlow 2.5s ease-in-out infinite alternate">'+
+    '<img src="'+imgSrc+'" alt="Winner Trophy" style="width:70%;max-width:260px;height:auto;object-fit:contain;display:block;margin:0 auto;filter:drop-shadow(0 0 22px rgba(201,168,76,0.95)) drop-shadow(0 0 45px rgba(201,168,76,0.55));animation:trophyGlow 2.5s ease-in-out infinite alternate">'+
     (wn?'<div style="font-family:\'Anton\',sans-serif;font-size:1.5rem;letter-spacing:4px;color:var(--gold);margin-top:.6rem;text-shadow:0 0 20px rgba(201,168,76,.8)">'+wn+'</div>':'')+
     '<div style="font-family:\'Oswald\',sans-serif;font-size:.62rem;color:var(--muted);letter-spacing:2px;margin-top:.2rem;text-transform:uppercase">Elite Football Hub Champions</div>'+
     '<div style="height:1px;background:linear-gradient(90deg,transparent,var(--gold),transparent);margin:1rem 0 .3rem"></div>'+
@@ -2729,12 +3101,74 @@ function startCelebrationFx(){
     spawnFirework();
   },650);
 }
+// Full team goal ranking for a tournament (group + playoff goals combined) —
+// identical calc to renderGoalsRanking's Goals tab, so numbers always match.
+function getTeamGoalsRanking(tour){
+  if(!tour||!tour.teams) return [];
+  var pg={};
+  if(tour.bracketRounds) tour.bracketRounds.forEach(function(r){
+    r.matches.forEach(function(m){
+      if(!m.t1||!m.t2) return;
+      var i1=m.t1.id,i2=m.t2.id;
+      if(!pg[i1]) pg[i1]=0; if(!pg[i2]) pg[i2]=0;
+      if(m.leg1h!=null){pg[i1]+=m.leg1h;pg[i2]+=m.leg1a;}
+      if(m.et1h!=null){pg[i1]+=m.et1h;pg[i2]+=m.et1a;}
+      if(m.leg2h!=null){pg[i2]+=m.leg2h;pg[i1]+=m.leg2a;}
+      if(m.et2h!=null){pg[i2]+=m.et2h;pg[i1]+=m.et2a;}
+    });
+  });
+  return tour.teams.map(function(t){
+    var gs=t.goalsFor||0,po=pg[t.id]||0;
+    return{name:t.name,id:t.id,totalGoals:gs+po};
+  }).sort(function(a,b){return b.totalGoals-a.totalGoals;});
+}
+
+// Full defensive ranking for a tournament (conceded + clean sheets, group +
+// playoff matches) — same calc as admin's getBestDefenseWinner.
+function getDefenseRanking(tour){
+  if(!tour) return [];
+  function normScore(m){
+    if(m.homeScore!=null) return {hs:m.homeScore, as:m.awayScore};
+    if(m.leg1h!=null) return {hs:(m.leg1h||0)+(m.et1h||0), as:(m.leg1a||0)+(m.et1a||0)};
+    return null;
+  }
+  var groupDone=(tour.matches||[]).filter(function(m){return m.done&&m.homeScore!=null;});
+  var bracketDone=(tour.bracketRounds||[]).reduce(function(acc,r){
+    return acc.concat(r.matches.filter(function(m){return m.done&&m.leg1h!=null;}));
+  },[]);
+  var allDone=groupDone.concat(bracketDone);
+  var teamStats={};
+  (tour.teams||[]).forEach(function(t){
+    teamStats[t.name]={name:t.name,conceded:0,cleanSheets:0,played:0};
+  });
+  allDone.forEach(function(m){
+    var sc=normScore(m); if(!sc) return;
+    var h=m.homeName||(m.t1&&m.t1.name)||null;
+    var a=m.awayName||(m.t2&&m.t2.name)||null;
+    if(h&&teamStats[h]){teamStats[h].conceded+=sc.as;teamStats[h].played++;if(sc.as===0)teamStats[h].cleanSheets++;}
+    if(a&&teamStats[a]){teamStats[a].conceded+=sc.hs;teamStats[a].played++;if(sc.hs===0)teamStats[a].cleanSheets++;}
+  });
+  return Object.values(teamStats).filter(function(t){return t.played>0;})
+    .sort(function(a,b){return a.conceded-b.conceded;});
+}
+
 function getChampion(tour){
   if(!tour||!tour.bracketRounds||!tour.bracketRounds.length) return null;
   var mainRounds=tour.bracketRounds.filter(function(r){return r.matches[0]&&!r.matches[0].is3rd;});
   if(!mainRounds.length) return null;
   var fr=mainRounds[mainRounds.length-1];
   return (fr.matches[0]&&fr.matches[0].winner)?fr.matches[0].winner:null;
+}
+// ─── Award image lookup (Phase 3 — mirrors admin_dashboard.html) ───────────
+// Awards Manager (db.awards, set in admin) is the source of truth for trophy
+// images shown on the public page. Falls back to the legacy per-tournament
+// winnerTrophyImg/goldenBootImg fields, then a default.
+function getAwardImage(tour,type,legacyImg,defaultImg){
+  if(tour&&db&&db.awards){
+    var match=db.awards.find(function(a){return a.tournamentId===tour.id&&a.type===type&&a.img;});
+    if(match) return match.img;
+  }
+  return legacyImg||defaultImg||null;
 }
 function openAnimOverlay(){
   var ov=document.getElementById('animOverlay');
@@ -2765,7 +3199,7 @@ function playWinnerRevealAnim(tour,done){
   openAnimOverlay();
   _animDoneFn=function(){ closeAnimOverlay(done); };
   var content=document.getElementById('animContent');
-  var cupSrc=tour.winnerTrophyImg||'efh_cup.png';
+  var cupSrc=getAwardImage(tour,'trophy_1st',tour.winnerTrophyImg,'efh_cup.png');
   content.innerHTML=
     '<div class="anim-eyebrow anim-line" style="animation-delay:.1s">🏆 '+(tour.name||'EFH')+' Champion 🏆</div>'+
     '<img src="'+cupSrc+'" class="anim-cup-img" onerror="this.style.display=\'none\'">'+
@@ -2952,7 +3386,7 @@ function playJourneyAnim(tour,done){
   slides.push({type:'stats',totalTeams:totalTeams,totalMatches:totalMatches,totalGoals:totalGoals});
 
   if(topGoalTeam&&topGoalTeam.goals>0){
-    slides.push({type:'golden_boot',team:topGoalTeam.name,goals:topGoalTeam.goals,coach:topGoalTeam.coach,bootImg:tour.goldenBootImg||null});
+    slides.push({type:'golden_boot',team:topGoalTeam.name,goals:topGoalTeam.goals,coach:topGoalTeam.coach,bootImg:getAwardImage(tour,'golden_boot',tour.goldenBootImg,null)});
   }
 
   if(bestDefense&&(bestDefense.conceded>=0)){
@@ -3139,7 +3573,7 @@ function playJourneyAnim(tour,done){
       animAfter(900+s.lines.length*900,nextSlide);
 
     } else if(s.type==='reveal'){
-      var cupSrc=s.tour.winnerTrophyImg||'efh_cup.png';
+      var cupSrc=getAwardImage(s.tour,'trophy_1st',s.tour.winnerTrophyImg,'efh_cup.png');
       content.innerHTML=
         '<img src="'+cupSrc+'" class="anim-cup-img" onerror="this.style.display=\'none\'">'+
         '<div class="anim-eyebrow anim-line" style="animation-delay:.2s">'+tname+' · Champions</div>'+
@@ -3224,7 +3658,7 @@ function openTeamProfile(opts){
     // tournament team
     var tour=db.tournaments.find(function(t){return t.id===opts.tourId;});
     if(!tour)return;
-    var t=tour.teams.find(function(x){return x.id===opts.teamId;});
+    var t=tour.teams.find(function(x){return String(x.id)===String(opts.teamId);});
     if(!t)return;
     var regTeam2=resolveRegTeam(t);
     var logoUrl2=logoImg(t.name,70,regTeam2);
@@ -3696,6 +4130,28 @@ function buildTournamentTeamProfileHTML(t,tour,regTeam){
     h+='<div class="tpp-section"><div class="tpp-empty-matches">No matches scheduled yet</div></div>';
   }
 
+  // ── Team Trophies (from Treasure Hall) ──
+  var teamAwards=(db.awards||[]).filter(function(a){
+    return a.recipient&&a.recipient.toLowerCase()===t.name.toLowerCase();
+  });
+  if(teamAwards.length){
+    var typeColors={'trophy_1st':'#c9a84c','medal_1st':'#ffd700','medal_2nd':'#c0c0c0','medal_3rd':'#cd7f32','golden_boot':'#ff6b35','best_defense':'#4db8ff','custom':'#c9a84c'};
+    var typeIcons={'trophy_1st':'🏆','medal_1st':'🥇','medal_2nd':'🥈','medal_3rd':'🥉','golden_boot':'👟','best_defense':'🛡️','custom':'🎖️'};
+    h+='<div class="tpp-section"><div class="tpp-section-title">🏛️ Trophy Cabinet</div>';
+    h+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem">';
+    teamAwards.forEach(function(a){
+      var col=typeColors[a.type]||'#c9a84c';
+      var icon=typeIcons[a.type]||'🏅';
+      h+='<div style="background:rgba(255,255,255,.03);border:1px solid rgba(201,168,76,.15);border-radius:10px;padding:.6rem .4rem;text-align:center;position:relative;overflow:hidden">'+
+        '<div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,'+col+',transparent)"></div>'+
+        (a.img?'<img src="'+a.img+'" style="width:44px;height:44px;object-fit:contain;border-radius:6px;margin-bottom:.3rem">':'<div style="font-size:1.8rem;margin-bottom:.2rem">'+icon+'</div>')+
+        '<div style="font-size:.55rem;color:'+col+';font-family:Anton,sans-serif;line-height:1.2">'+a.name+'</div>'+
+        (a.season?'<div style="font-size:.48rem;color:var(--muted);margin-top:.1rem">'+a.season+'</div>':'')+
+      '</div>';
+    });
+    h+='</div></div>';
+  }
+
   h+='<div style="height:1.5rem"></div>';
   return h;
 }
@@ -3806,50 +4262,81 @@ function addPubAiMsg(role,text){
 }
 
 function buildPubAiContext(){
-  var lines=[],tour=getTour();
-  if(!tour){return "No active tournament.";}
-  lines.push("TOURNAMENT: "+tour.name+" (format:"+tour.format+", teams:"+(tour.teams||[]).length+")");
-  var teams=tour.teams||[];
-  if(teams.length){
-    lines.push("\nSTANDINGS:");
-    var sorted=[...teams].sort(function(a,b){
-      if((b.points||0)!==(a.points||0))return(b.points||0)-(a.points||0);
-      return((b.goalsFor||0)-(b.goalsAgainst||0))-((a.goalsFor||0)-(a.goalsAgainst||0));
-    });
-    sorted.forEach(function(t,i){
-      var gd=(t.goalsFor||0)-(t.goalsAgainst||0);
-      lines.push((i+1)+". "+t.name+" P:"+(t.played||0)+" W:"+(t.wins||0)+" D:"+(t.draws||0)+" L:"+(t.losses||0)+" GF:"+(t.goalsFor||0)+" GA:"+(t.goalsAgainst||0)+" GD:"+(gd>=0?"+":"")+gd+" PTS:"+(t.points||0)+(t.group?" [Group "+t.group+"]":""));
-    });
-  }
-  if(tour.format==="groups"){
-    var groups={};
-    teams.forEach(function(t){if(t.group){if(!groups[t.group])groups[t.group]=[];groups[t.group].push(t);}});
-    var gKeys=Object.keys(groups).sort();
-    if(gKeys.length){
-      lines.push("\nGROUPS:");
-      gKeys.forEach(function(g){
-        var gt=[...groups[g]].sort(function(a,b){return(b.points||0)-(a.points||0);});
-        lines.push("Group "+g+": "+gt.map(function(t,i){return(i+1)+"."+t.name+"("+(t.points||0)+"pts)"}).join(", "));
+  var lines=[];
+  // Read ALL tournaments not just the active one so predictions use full history
+  var allTours=db.tournaments||[];
+  var tour=getTour();
+  if(!tour&&!allTours.length){return "No tournament data available.";}
+
+  // Active tournament deep context
+  if(tour){
+    lines.push("ACTIVE TOURNAMENT: "+tour.name+" (format:"+tour.format+", teams:"+(tour.teams||[]).length+")");
+    var teams=tour.teams||[];
+    if(teams.length){
+      lines.push("\nSTANDINGS:");
+      var sorted=[...teams].sort(function(a,b){
+        if((b.points||0)!==(a.points||0))return(b.points||0)-(a.points||0);
+        return((b.goalsFor||0)-(b.goalsAgainst||0))-((a.goalsFor||0)-(a.goalsAgainst||0));
       });
-      if(tour.groupThirdAdv>0)lines.push("Best "+tour.groupThirdAdv+" 3rd-place teams also qualify as wildcards.");
+      sorted.forEach(function(t,i){
+        var gd=(t.goalsFor||0)-(t.goalsAgainst||0);
+        lines.push((i+1)+". "+t.name+" P:"+(t.played||0)+" W:"+(t.wins||0)+" D:"+(t.draws||0)+" L:"+(t.losses||0)+" GF:"+(t.goalsFor||0)+" GA:"+(t.goalsAgainst||0)+" GD:"+(gd>=0?"+":"")+gd+" PTS:"+(t.points||0)+(t.group?" [Group "+t.group+"]":""));
+      });
+    }
+    if(tour.format==="groups"){
+      var groups={};
+      teams.forEach(function(t){if(t.group){if(!groups[t.group])groups[t.group]=[];groups[t.group].push(t);}});
+      var gKeys=Object.keys(groups).sort();
+      if(gKeys.length){
+        lines.push("\nGROUPS:");
+        gKeys.forEach(function(g){
+          var gt=[...groups[g]].sort(function(a,b){return(b.points||0)-(a.points||0);});
+          lines.push("Group "+g+": "+gt.map(function(t,i){return(i+1)+"."+t.name+"("+(t.points||0)+"pts)"}).join(", "));
+        });
+        if(tour.groupThirdAdv>0)lines.push("Best "+tour.groupThirdAdv+" 3rd-place teams also qualify as wildcards.");
+      }
+    }
+    // Recent results — normalised for both group (homeScore) and bracket (leg1h) matches
+    var done=(tour.matches||[]).filter(function(m){
+      return m.done&&(m.homeScore!=null||m.leg1h!=null);
+    }).slice(-30);
+    if(done.length){
+      lines.push("\nRECENT RESULTS ("+tour.name+"):");
+      done.forEach(function(m){
+        var h=m.homeName||"?",a=m.awayName||"?";
+        var hs=m.homeScore!=null?m.homeScore:m.leg1h;
+        var as=m.homeScore!=null?m.awayScore:m.leg1a;
+        lines.push(h+" "+hs+"-"+as+" "+a+(m.round?" ["+m.round+"]":""));
+      });
+    }
+    if(tour.bracketRounds&&tour.bracketRounds.length){
+      lines.push("\nBRACKET:");
+      tour.bracketRounds.forEach(function(r){
+        r.matches.forEach(function(m){
+          if(m.t1&&m.t2){
+            var sc=m.leg1h!=null?(m.leg1h+"-"+m.leg1a):"TBD";
+            lines.push(r.name+": "+m.t1.name+" vs "+m.t2.name+(m.done?" "+sc+(m.winner?" - "+m.winner.name+" advances":""):" (upcoming)"));
+          }
+        });
+      });
     }
   }
-  var done=(tour.matches||[]).filter(function(m){return m.done&&m.leg1h!=null;}).slice(-20);
-  if(done.length){
-    lines.push("\nRECENT RESULTS:");
-    done.forEach(function(m){
-      var h=m.homeName||(m.t1&&m.t1.name)||"?",a=m.awayName||(m.t2&&m.t2.name)||"?";
-      lines.push(h+" "+m.leg1h+"-"+m.leg1a+" "+a+(m.round?" ["+m.round+"]":""));
+
+  // Past tournaments — champions + final standings for cross-tournament predictions
+  var past=allTours.filter(function(t){return t.id!==(tour&&tour.id)&&t.status==="finished";});
+  if(past.length){
+    lines.push("\nPAST TOURNAMENTS:");
+    past.forEach(function(t){
+      var champ=null;
+      if(t.bracketRounds&&t.bracketRounds.length){
+        var fr=t.bracketRounds.filter(function(r){return r.matches[0]&&!r.matches[0].is3rd;});
+        var final=fr[fr.length-1];
+        if(final&&final.matches[0]&&final.matches[0].winner)champ=final.matches[0].winner.name;
+      }
+      lines.push("- "+t.name+": "+( (t.teams||[]).length)+" teams"+(champ?" | Champion: "+champ:"")+" | "+( (t.matches||[]).filter(function(m){return m.done;}).length)+" matches played");
     });
   }
-  if(tour.bracketRounds&&tour.bracketRounds.length){
-    lines.push("\nBRACKET:");
-    tour.bracketRounds.forEach(function(r){
-      r.matches.forEach(function(m){
-        if(m.t1&&m.t2)lines.push(r.name+": "+m.t1.name+" vs "+m.t2.name+(m.done?" "+m.leg1h+"-"+m.leg1a+(m.winner?" - "+m.winner.name+" advances":""):" (upcoming)"));
-      });
-    });
-  }
+
   return lines.join("\n");
 }
 
@@ -3877,6 +4364,215 @@ function sendPubAiMessage(){
     var t=document.getElementById("pubAiTyping");if(t)t.remove();
     addPubAiMsg("assistant","Could not reach the analyst right now. Try again in a moment.");
   }).finally(function(){pubAiBusy=false;document.getElementById("pubAiSendBtn").disabled=false;});
+}
+</script>
+
+
+<!-- ══════════════════════════ MATCH PREVIEW MODAL ══════════════════════════ -->
+<div id="matchPreviewPanel" style="display:none;position:fixed;inset:0;z-index:8000;background:rgba(4,6,15,.97);overflow-y:auto;-webkit-overflow-scrolling:touch">
+  <div style="max-width:480px;margin:0 auto;padding:1rem .8rem 4rem">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:.8rem 0 1rem;border-bottom:1px solid #1e2a4a;margin-bottom:1.2rem">
+      <div style="font-family:Anton,sans-serif;font-size:.9rem;letter-spacing:2px;color:#c9a84c">MATCH PREVIEW</div>
+      <button onclick="closeMatchPreview()" style="background:none;border:none;color:#5a6a9a;font-size:1.3rem;cursor:pointer;padding:.3rem">✕</button>
+    </div>
+    <div id="matchPreviewBody"></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════ AWARD SHOWCASE MODAL ══════════════════════════ -->
+<div id="awardShowcasePanel" style="display:none;position:fixed;inset:0;z-index:8000;background:rgba(4,6,15,.97);overflow-y:auto;-webkit-overflow-scrolling:touch" onclick="if(event.target===this)closeAwardShowcase()">
+  <div style="max-width:480px;margin:0 auto;padding:1rem .8rem 4rem">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:.8rem 0 1rem;border-bottom:1px solid #1e2a4a;margin-bottom:1.2rem">
+      <div style="font-family:Anton,sans-serif;font-size:.9rem;letter-spacing:2px;color:#c9a84c">AWARD</div>
+      <button onclick="closeAwardShowcase()" style="background:none;border:none;color:#5a6a9a;font-size:1.3rem;cursor:pointer;padding:.3rem">✕</button>
+    </div>
+    <div id="awardShowcaseBody"></div>
+  </div>
+</div>
+
+<style>
+.mp-team-block{flex:1;display:flex;flex-direction:column;align-items:center;gap:.4rem;min-width:0}
+.mp-team-name{font-family:Anton,sans-serif;font-size:1rem;letter-spacing:1px;text-align:center;line-height:1.1;color:#e8eaf0}
+.mp-coach{font-size:.6rem;letter-spacing:1px;color:#5a6a9a;font-family:DM Sans,sans-serif;text-align:center}
+.mp-vs{font-family:Anton,sans-serif;font-size:.8rem;letter-spacing:3px;color:#5a6a9a;flex-shrink:0;padding:0 .8rem}
+.mp-section-title{font-family:Anton,sans-serif;font-size:.62rem;letter-spacing:2px;color:#c9a84c;text-transform:uppercase;margin:1rem 0 .5rem}
+.mp-form-row{display:flex;align-items:center;padding:.42rem .7rem;font-size:.7rem;border-bottom:1px solid rgba(255,255,255,.04);gap:.4rem}
+.mp-form-res{font-family:Anton,sans-serif;font-size:.78rem;min-width:30px;text-align:center}
+.mp-prob-bar{height:6px;border-radius:3px;transition:width .6s ease}
+.mp-h2h-row{display:flex;align-items:center;padding:.42rem .7rem;font-size:.7rem;border-bottom:1px solid rgba(255,255,255,.04);gap:.5rem}
+</style>
+
+<script>
+function openMatchPreview(homeId, awayId, matchId, tourId){
+  var tid = tourId || activeTid;
+  var tour = db.tournaments.find(function(t){return t.id===tid;})||getTour();
+  if(!tour) return;
+
+  // Find teams
+  var homeTeam = (tour.teams||[]).find(function(t){return String(t.id)===String(homeId);});
+  var awayTeam = (tour.teams||[]).find(function(t){return String(t.id)===String(awayId);});
+  if(!homeTeam||!awayTeam) return;
+
+  var homeName = homeTeam.name, awayName = awayTeam.name;
+  var homeCoach = homeTeam.coach||'', awayCoach = awayTeam.coach||'';
+  var homeReg = resolveRegTeam(homeTeam), awayReg = resolveRegTeam(awayTeam);
+
+  // Collect all matches across all tournaments for form + H2H
+  var allMatches = [];
+  (db.tournaments||[]).forEach(function(t){
+    (t.matches||[]).filter(function(m){return m.done;}).forEach(function(m){
+      var mhName = m.homeName||(m.t1&&m.t1.name)||'';
+      var maName = m.awayName||(m.t2&&m.t2.name)||'';
+      if(mhName&&maName) allMatches.push({
+        home:mhName, away:maName,
+        hs: m.homeScore!=null?m.homeScore:(m.leg1h||0),
+        as: m.homeScore!=null?m.awayScore:(m.leg1a||0),
+        round: m.round||'', tname: t.name
+      });
+    });
+    // Bracket matches
+    (t.bracketRounds||[]).forEach(function(r){
+      r.matches.filter(function(m){return m.done&&m.t1&&m.t2;}).forEach(function(m){
+        allMatches.push({
+          home:m.t1.name, away:m.t2.name,
+          hs:(m.leg1h||0)+(m.et1h||0), as:(m.leg1a||0)+(m.et1a||0),
+          round:r.name, tname:t.name
+        });
+      });
+    });
+  });
+
+  // Last 5 for each team
+  function last5(teamName){
+    return allMatches.filter(function(m){return m.home===teamName||m.away===teamName;}).slice(-5).reverse();
+  }
+  var homeForm = last5(homeName);
+  var awayForm  = last5(awayName);
+
+  // H2H
+  var h2h = allMatches.filter(function(m){
+    return (m.home===homeName&&m.away===awayName)||(m.home===awayName&&m.away===homeName);
+  });
+  var hW=0,aW=0,dr=0;
+  h2h.forEach(function(m){
+    var hg=m.home===homeName?m.hs:m.as, ag=m.home===homeName?m.as:m.hs;
+    if(hg>ag)hW++;else if(ag>hg)aW++;else dr++;
+  });
+
+  // Win probability from standing stats
+  function teamStats(t){
+    var mp=t.played||1;
+    return {
+      pts: t.points||0,
+      gd: (t.goalsFor||0)-(t.goalsAgainst||0),
+      winRate: (t.wins||0)/mp,
+      drawRate: (t.draws||0)/mp,
+      lossRate: (t.losses||0)/mp,
+      gf: t.goalsFor||0,
+      ga: t.goalsAgainst||0,
+      played: mp
+    };
+  }
+  var hS=teamStats(homeTeam), aS=teamStats(awayTeam);
+  // Weighted score: 60% win rate, 25% GD per game, 15% pts per game
+  var maxP=Math.max(hS.played,aS.played,1);
+  function teamScore(st){
+    return st.winRate*60+(st.gd/maxP)*25+(st.pts/maxP)*15;
+  }
+  var hScore=Math.max(teamScore(hS),0.1), aScore=Math.max(teamScore(aS),0.1);
+  var total=hScore+aScore;
+  var avgDraw=Math.round((hS.drawRate+aS.drawRate)/2*100);
+  var remFor=100-avgDraw;
+  var hWinPct=Math.round((hScore/total)*remFor);
+  var aWinPct=100-avgDraw-hWinPct;
+
+  // Form badge
+  function resBadge(m, teamName){
+    var isHome=m.home===teamName;
+    var gf=isHome?m.hs:m.as, ga=isHome?m.as:m.hs;
+    var res=gf>ga?'W':gf===ga?'D':'L';
+    var col=res==='W'?'#00e87a':res==='D'?'#4db8ff':'#ff3b5c';
+    var bg=res==='W'?'rgba(0,232,122,.12)':res==='D'?'rgba(77,184,255,.1)':'rgba(255,59,92,.1)';
+    var opp=isHome?m.away:m.home;
+    return '<div class="mp-form-row">'+
+      '<span style="font-family:Anton,sans-serif;font-size:.65rem;min-width:14px;color:'+col+';background:'+bg+';padding:.1rem .3rem;border-radius:4px">'+res+'</span>'+
+      '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#b0b8d0">vs '+opp+'</span>'+
+      '<span class="mp-form-res" style="color:'+col+'">'+gf+'–'+ga+'</span>'+
+      '<span style="font-size:.48rem;color:#5a6a9a;flex-shrink:0">'+m.round.split('·')[0].trim()+'</span>'+
+    '</div>';
+  }
+
+  var body='';
+
+  // Header: both teams
+  body+='<div style="display:flex;align-items:center;padding:0 0 1rem">';
+  body+='<div class="mp-team-block">'+logoImg(homeName,42,homeReg)+'<div class="mp-team-name">'+homeName+'</div><div class="mp-coach">👤 '+homeCoach+'</div></div>';
+  body+='<div class="mp-vs">VS</div>';
+  body+='<div class="mp-team-block">'+logoImg(awayName,42,awayReg)+'<div class="mp-team-name">'+awayName+'</div><div class="mp-coach">'+awayCoach+' 👤</div></div>';
+  body+='</div>';
+
+  // Win probability bars
+  body+='<div class="mp-section-title">📊 Chances</div>';
+  body+='<div style="background:rgba(255,255,255,.03);border:1px solid #1e2a4a;border-radius:10px;padding:.8rem .9rem">';
+  function probRow(label, pct, color){
+    return '<div style="margin-bottom:.55rem">'+
+      '<div style="display:flex;justify-content:space-between;font-size:.62rem;color:#b0b8d0;margin-bottom:.3rem"><span>'+label+'</span><span style="font-family:Anton,sans-serif;color:'+color+'">'+pct+'%</span></div>'+
+      '<div style="background:#1e2a4a;border-radius:3px;height:6px"><div class="mp-prob-bar" style="width:'+pct+'%;background:'+color+'"></div></div>'+
+    '</div>';
+  }
+  body+=probRow(homeName+' Win', hWinPct, '#00e87a');
+  body+=probRow('Draw', avgDraw, '#4db8ff');
+  body+=probRow(awayName+' Win', aWinPct, '#ff3b5c');
+  body+='<div style="font-size:.52rem;color:#5a6a9a;margin-top:.3rem;font-family:DM Sans,sans-serif">Based on current standings: pts, GD and win rate</div>';
+  body+='</div>';
+
+  // Head to head
+  if(h2h.length){
+    body+='<div class="mp-section-title">⚔️ Head to Head ('+h2h.length+' meetings)</div>';
+    body+='<div style="background:rgba(255,255,255,.03);border:1px solid #1e2a4a;border-radius:10px;overflow:hidden">';
+    body+='<div style="display:flex;gap:.5rem;padding:.6rem .9rem;border-bottom:1px solid #1e2a4a;font-size:.62rem">';
+    body+='<span style="flex:1;color:#00e87a;font-family:Anton,sans-serif">'+homeName+': '+hW+'W</span>';
+    body+='<span style="color:#4db8ff;font-family:Anton,sans-serif">'+dr+'D</span>';
+    body+='<span style="flex:1;text-align:right;color:#ff3b5c;font-family:Anton,sans-serif">'+aW+'W :'+awayName+'</span>';
+    body+='</div>';
+    h2h.slice(-5).reverse().forEach(function(m){
+      var hg=m.home===homeName?m.hs:m.as, ag=m.home===homeName?m.as:m.hs;
+      var col=hg>ag?'#00e87a':ag>hg?'#ff3b5c':'#4db8ff';
+      body+='<div class="mp-h2h-row">'+
+        '<span style="flex:1;font-size:.62rem;color:#b0b8d0">'+m.tname+'</span>'+
+        '<span style="font-family:Anton,sans-serif;font-size:.8rem;color:'+col+'">'+hg+' – '+ag+'</span>'+
+        '<span style="font-size:.48rem;color:#5a6a9a;min-width:50px;text-align:right">'+m.round.split('·')[0].trim()+'</span>'+
+      '</div>';
+    });
+    body+='</div>';
+  } else {
+    body+='<div class="mp-section-title">⚔️ Head to Head</div>';
+    body+='<div style="background:rgba(255,255,255,.03);border:1px solid #1e2a4a;border-radius:10px;padding:.8rem;text-align:center;font-size:.7rem;color:#5a6a9a">These teams have never met before 🆕</div>';
+  }
+
+  // Form tables side by side
+  body+='<div class="mp-section-title">📋 Recent Form (Last 5)</div>';
+  body+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:.6rem">';
+  // Home form
+  body+='<div style="background:rgba(255,255,255,.03);border:1px solid #1e2a4a;border-radius:10px;overflow:hidden">';
+  body+='<div style="padding:.4rem .7rem;font-size:.5rem;letter-spacing:1.5px;color:#c9a84c;background:rgba(201,168,76,.05);border-bottom:1px solid #1e2a4a">'+homeName+'</div>';
+  if(homeForm.length) homeForm.forEach(function(m){body+=resBadge(m,homeName);}); else body+='<div style="padding:.6rem;font-size:.65rem;color:#5a6a9a;text-align:center">No games yet</div>';
+  body+='</div>';
+  // Away form
+  body+='<div style="background:rgba(255,255,255,.03);border:1px solid #1e2a4a;border-radius:10px;overflow:hidden">';
+  body+='<div style="padding:.4rem .7rem;font-size:.5rem;letter-spacing:1.5px;color:#c9a84c;background:rgba(201,168,76,.05);border-bottom:1px solid #1e2a4a">'+awayName+'</div>';
+  if(awayForm.length) awayForm.forEach(function(m){body+=resBadge(m,awayName);}); else body+='<div style="padding:.6rem;font-size:.65rem;color:#5a6a9a;text-align:center">No games yet</div>';
+  body+='</div>';
+  body+='</div>';
+
+  document.getElementById('matchPreviewBody').innerHTML=body;
+  document.getElementById('matchPreviewPanel').style.display='block';
+  document.body.style.overflow='hidden';
+}
+
+function closeMatchPreview(){
+  document.getElementById('matchPreviewPanel').style.display='none';
+  document.body.style.overflow='';
 }
 </script>
 
