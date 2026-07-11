@@ -1941,7 +1941,12 @@ function fetchFromFirebase(){
 
     updateWinnerTicker();
     checkAnimTriggers(tours);
-  }).catch(function(){syncEnd();});
+  }).catch(function(err){
+    syncEnd();
+    console.error('EFH Firebase load failed:',err);
+    var badge=document.getElementById('liveBadge')||document.querySelector('.hdr-live');
+    if(badge) badge.outerHTML='<span style="color:#ff6b6b;font-size:.7rem">⚠️ Firebase error — check console (F12)</span>';
+  });
 }
 
 // ── Init ───────────────────────────────────────────────────────
