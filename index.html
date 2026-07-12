@@ -966,6 +966,13 @@ var fbDb = firebase.database();
 
 var db={tournaments:[]};
 var activeTid=null;
+// Tracks how the user arrived at the current tournament view, so the back
+// button can return them to the right place. null = normal tournament-list
+// flow; 'award' = arrived via a trophy/award card in Award Hall (which may
+// point at a FINISHED tournament that the regular Tournaments tab won't
+// show, so it needs its own way back instead of falling into the live-only
+// tournament list).
+var tourBackAction=null;
 var activeSection='table';
 var activeTopTab='tourney'; // 'tourney' | 'reg' | 'past' — tracks which top tab user is on
 var registryTeams=[];
@@ -999,14 +1006,25 @@ function openTour(tid){
   setTopTabActive('tourney');
   var tour=getTour();
   var tours=(db.tournaments||[]).filter(function(t){return t.status!=='finished';});
-  var showBack=tours.length>1;
+  // Show a back button if there's actually somewhere sensible to go back to:
+  // either more than one live tournament (normal list case), or we arrived
+  // here from Award Hall pointing at a finished tournament that isn't even
+  // in that live list — in that case "back" should return to Award Hall.
+  var showBack=tourBackAction==='award' || tours.length>1;
   var hEl=document.getElementById('tourNameHeader');
-  hEl.innerHTML=(showBack?'<button class="past-back" onclick="renderTourList()">&#8592;</button>':'')+
+  hEl.innerHTML=(showBack?'<button class="past-back" onclick="tourBack()">&#8592;</button>':'')+
     '<div class="past-view-name">'+(tour?tour.name:'')+'</div>';
   hEl.style.display='flex';
   document.getElementById('iTabs').style.display='flex';
   document.getElementById('tourContent').style.display='block';
   showSec('table');
+}
+// Routes the back button correctly depending on how the tournament view was reached.
+function tourBack(){
+  var action=tourBackAction;
+  tourBackAction=null;
+  if(action==='award'){ showTreasuryTab(); }
+  else { renderTourList(); }
 }
 
 function renderTourList(){
@@ -1198,6 +1216,7 @@ function getAwardBlurb(a){
 // Jump from the showcase straight to the relevant in-tournament tab.
 function goToAwardTourSection(tourId,section){
   closeAwardShowcase();
+  tourBackAction='award';
   if(tourId) openTour(tourId);
   showSec(section);
 }
@@ -1302,6 +1321,7 @@ function showPastSec(tid,name,btn){
 }
 
 function showTourTab(){
+  tourBackAction=null;
   hideAllTopSections();
   setTopTabActive('tourney');
   var tours=(db.tournaments||[]).filter(function(t){return t.status!=='finished';});
