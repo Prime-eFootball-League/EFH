@@ -272,8 +272,6 @@ td.pts{font-family:'Anton',sans-serif;font-size:1.1rem;color:var(--gold);text-sh
         <input type="text" id="regName" placeholder="e.g. FC Elite United" autocomplete="off" name="efh_team_name_field">
         <label class="lbl">Coach Name</label>
         <input type="text" id="regCoach" placeholder="Coach name" autocomplete="off" name="efh_coach_name_field">
-        <label class="lbl">WhatsApp Number <span style="color:var(--muted);font-size:.58rem">(used to auto-match future sign-ups)</span></label>
-        <input type="tel" id="regWhatsapp" placeholder="e.g. 08012345678" autocomplete="off" name="efh_whatsapp_field">
         <label class="lbl">Club Logo <span style="color:var(--muted);font-size:.58rem">(tap to browse or search)</span></label>
         <div style="position:relative;margin-bottom:.5rem">
           <input type="text" id="regLogoSearch" placeholder="Search e.g. Arsenal, Real Madrid..." style="margin-bottom:.3rem" oninput="logoSearch(this.value)" onfocus="showLogoGrid(this.value)" autocomplete="off">
@@ -298,51 +296,7 @@ td.pts{font-family:'Anton',sans-serif;font-size:1.1rem;color:var(--gold);text-sh
     <!-- Registry list -->
     <div id="regList"><div class="empty" style="padding:1.5rem" id="regListLoading"><span style="font-size:1rem;animation:spin 1.2s linear infinite;display:inline-block">⚙️</span> <span style="color:var(--muted)">Loading teams...</span></div></div>
   </div>
-
-  <!-- ── TEAM SIGN-UPS ── -->
-  <div style="margin-top:2rem;padding-top:1.5rem;border-top:1px solid var(--border)">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
-      <div class="t-list-title" style="margin-bottom:0">📝 Team Sign-Ups</div>
-    </div>
-    <div class="info" style="margin-bottom:1rem">Fans register themselves on the public Sign Up tab. Existing-team claims are auto-matched by WhatsApp number; mismatches land here for you to check.</div>
-    <div id="signupAdminBody"></div>
-  </div>
 </div>
-
-<!-- SIGN-UP SESSION TITLE MODAL -->
-<div class="overlay" id="signupSessionOverlay">
-  <div class="modal gold-border">
-    <div class="modal-title" style="color:var(--gold)">📝 Open Sign-Ups <button class="modal-close" onclick="closeSignupSessionModal()">✕</button></div>
-    <label class="lbl">Session Title</label>
-    <input type="text" id="signupSessionTitleInput" placeholder="e.g. EFH Season 3 Sign-Ups" style="margin-bottom:1rem" onkeydown="if(event.key==='Enter')saveSignupSession()">
-    <button class="btn-full btn-gold" onclick="saveSignupSession()">🚀 OPEN SIGN-UPS</button>
-  </div>
-</div>
-
-<!-- SIGN-UP REVIEW DETAIL MODAL -->
-<div id="signupReviewOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:520;align-items:center;justify-content:center;backdrop-filter:blur(3px)" onclick="if(event.target===this)closeSignupReview()">
-  <div style="background:var(--card);border:1px solid var(--border);border-radius:18px;width:100%;max-width:480px;max-height:88vh;overflow-y:auto;padding:1.2rem 1.2rem 2rem">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.8rem">
-      <div class="card-title" style="margin-bottom:0">🔺 Needs Review</div>
-      <button onclick="closeSignupReview()" style="background:none;border:none;color:var(--muted);font-size:1.3rem;cursor:pointer;padding:.2rem">✕</button>
-    </div>
-    <div id="signupReviewBody"></div>
-  </div>
-</div>
-
-<!-- GROUP ANNOUNCEMENT COPY MODAL -->
-<div id="groupAnnounceOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:520;align-items:center;justify-content:center;backdrop-filter:blur(3px)" onclick="if(event.target===this)closeGroupAnnounce()">
-  <div style="background:var(--card);border:1px solid var(--border);border-radius:18px;width:100%;max-width:480px;max-height:88vh;overflow-y:auto;padding:1.2rem 1.2rem 2rem">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.8rem">
-      <div class="card-title" style="margin-bottom:0">📋 Group Announcement</div>
-      <button onclick="closeGroupAnnounce()" style="background:none;border:none;color:var(--muted);font-size:1.3rem;cursor:pointer;padding:.2rem">✕</button>
-    </div>
-    <div style="font-size:.72rem;color:var(--muted);margin-bottom:.6rem">Tap to select all, then copy and paste into WhatsApp.</div>
-    <textarea id="groupAnnounceText" readonly style="width:100%;min-height:320px;background:var(--card2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:.7rem;font-size:.8rem;line-height:1.6;font-family:'DM Sans',sans-serif" onclick="this.select()"></textarea>
-    <button class="btn-full btn-gold" style="margin-top:.8rem" onclick="copyGroupAnnounce()">📋 COPY TO CLIPBOARD</button>
-  </div>
-</div>
-
 
 <!-- ══════════════════════════════ -->
 <!-- WIZARD: CREATE TOURNAMENT     -->
@@ -482,8 +436,7 @@ td.pts{font-family:'Anton',sans-serif;font-size:1.1rem;color:var(--gold);text-sh
           <option value="">-- Select a registered team --</option>
         </select>
         <button class="btn-full btn-outline" onclick="wizAddFromRegistry()" style="margin-bottom:.4rem">📋 ADD FROM REGISTRY</button>
-        <button class="btn-full btn-outline" onclick="wizImportAllRegistry()" style="margin-bottom:.4rem;border-style:dashed;font-size:.82rem;color:var(--muted)">📥 IMPORT ALL REGISTRY TEAMS (then remove extras)</button>
-        <button class="btn-full btn-outline" onclick="wizImportSignups()" style="margin-bottom:.8rem;border-color:var(--gold);color:var(--gold);font-size:.82rem">📝 IMPORT CONFIRMED SIGN-UPS</button>
+        <button class="btn-full btn-outline" onclick="wizImportAllRegistry()" style="margin-bottom:.8rem;border-style:dashed;font-size:.82rem;color:var(--muted)">📥 IMPORT ALL REGISTRY TEAMS (then remove extras)</button>
         <div style="text-align:center;color:var(--muted);font-size:.8rem;margin:.3rem 0 .8rem">— or add new —</div>
         <label class="lbl">Team Name</label>
         <input type="text" id="wizTeamName" placeholder="e.g. FC Elite United" autocomplete="off" name="efh_wiz_team_name">
@@ -664,7 +617,6 @@ td.pts{font-family:'Anton',sans-serif;font-size:1.1rem;color:var(--gold);text-sh
       <div class="card-title">🎲 Auto-Assign Groups</div>
       <div class="info" style="margin-bottom:.7rem">Randomly shuffles and redistributes all teams evenly across the groups. Run <strong>Generate Fixtures</strong> afterwards to rebuild group-stage matchups.</div>
       <button class="btn-full btn-outline" onclick="doAutoAssignGroups()" style="background:rgba(201,168,76,.08);border-color:rgba(201,168,76,.4);color:var(--gold);font-weight:700">🎲 RANDOMLY ASSIGN GROUPS</button>
-      <button class="btn-full btn-outline" onclick="buildGroupAnnouncement()" style="margin-top:.6rem">📋 COPY GROUP ANNOUNCEMENT</button>
     </div>
     <div class="card">
       <div class="card-title">👥 All Teams</div>
@@ -1042,9 +994,6 @@ const auth = getAuth(app);
 // hit far less often, since photos (the biggest data) live
 // in a separate bucket instead of inflating every RTDB read/write.
 // ═══════════════════════════════════════════
-// TODO: replace with YOUR Supabase project's values (Settings → API in the
-// Supabase dashboard). Until these are filled in, uploads fall back to the
-// old compressed-base64-in-Firebase behavior automatically — nothing breaks.
 const SUPABASE_URL = "https://sxibfvvhypbyiupduefo.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN4aWJmdnZoeXBieWl1cGR1ZWZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM4MTU4MTgsImV4cCI6MjA5OTM5MTgxOH0.pH3eKawi9ECNZcfcEY2Wk_jxJiRIPrPypklT0wT-ULA";
 const SUPABASE_BUCKET = "efh-images";
@@ -1121,20 +1070,6 @@ window._fbDeleteAward = (aid) => {
 window._fbLoadAwards = () => {
   const r = ref(database, 'awards');
   return get(r).then(snap => snap.val());
-};
-
-// Sign-up session + entries (public self-registration system)
-window._fbSaveSignupSession = (sessionData) => {
-  return set(ref(database, 'signups/session'), sessionData);
-};
-window._fbLoadSignups = () => {
-  return get(ref(database, 'signups')).then(snap => snap.val());
-};
-window._fbSaveSignupEntry = (eid, entryData) => {
-  return set(ref(database, 'signups/entries/' + eid), entryData);
-};
-window._fbDeleteSignupEntry = (eid) => {
-  return set(ref(database, 'signups/entries/' + eid), null);
 };
 
 window._fbReady = true;
@@ -1509,84 +1444,6 @@ function wizImportAllRegistry(){
   buildWizRegistryDropdown();
   renderWizTeams();
   toast(`📥 ${toAdd.length} team${toAdd.length!==1?'s':''} imported! Remove extras with ✕, then tap Auto-Assign Groups.`);
-}
-
-function wizImportSignups(){
-  var entries=Object.keys(signupData.entries||{}).map(function(k){return signupData.entries[k];})
-    .filter(function(e){return e.status==='confirmed';});
-  if(!entries.length){toast('No confirmed sign-ups yet',true);return;}
-  const existing=(wizData.teams||[]).map(t=>t.name.toLowerCase());
-  var added=0, skipped=0;
-  entries.forEach(function(e,idx){
-    if(existing.includes(e.teamName.toLowerCase())){ skipped++; return; }
-    var regId=e.registryTeamId;
-    // New team, not yet in the registry — create it now so it has a permanent home
-    if(!regId){
-      var newReg={
-        id:'reg_'+Date.now()+'_'+idx,
-        name:e.teamName,
-        coach:e.coach||'',
-        whatsapp:e.whatsapp||'',
-        dateCreated:new Date().toISOString().slice(0,10)
-      };
-      registryTeams.push(newReg);
-      regId=newReg.id;
-      if(window._fbSaveRegTeam) window._fbSaveRegTeam(newReg.id,newReg).catch(()=>{});
-    }
-    wizData.teams.push({
-      id:'team_'+Date.now()+'_'+idx+'_'+Math.floor(Math.random()*1e6),
-      registryId:regId,
-      name:e.teamName,
-      coach:e.coach||'',
-      group:'',
-      played:0,won:0,drawn:0,lost:0,goalsFor:0,goalsAgainst:0,points:0
-    });
-    existing.push(e.teamName.toLowerCase());
-    added++;
-  });
-  saveRegistry();
-  buildWizRegistryDropdown();
-  renderWizTeams();
-  toast(`📝 ${added} sign-up${added!==1?'s':''} imported${skipped?` (${skipped} already in the list)`:''}`);
-}
-
-// Build the exact "*Group A* / 1. Team @number" announcement text from a live
-// tournament's assigned groups, pulling each team's WhatsApp number from the
-// registry entry it's linked to.
-function buildGroupAnnouncement(){
-  const tour=getTour();
-  if(!tour||!tour.teams||!tour.teams.length){toast('No teams to announce yet',true);return;}
-  const byGroup={};
-  tour.teams.forEach(function(t){
-    const g=t.group||'—';
-    if(!byGroup[g]) byGroup[g]=[];
-    byGroup[g].push(t);
-  });
-  const letters=Object.keys(byGroup).sort();
-  let out='Every player in each group\n';
-  letters.forEach(function(g){
-    out+='\n*Group '+g+'*\n';
-    byGroup[g].forEach(function(t,i){
-      const rt=getRegTeam(t);
-      const tag=rt&&rt.whatsapp?'@'+rt.whatsapp:(t.coach?'@'+t.coach:'@—');
-      out+=(i+1)+'. '+t.name+'.              '+tag+'\n';
-    });
-  });
-  document.getElementById('groupAnnounceText').value=out.trim();
-  document.getElementById('groupAnnounceOverlay').style.display='flex';
-}
-function closeGroupAnnounce(){
-  document.getElementById('groupAnnounceOverlay').style.display='none';
-}
-function copyGroupAnnounce(){
-  const ta=document.getElementById('groupAnnounceText');
-  ta.select();
-  navigator.clipboard && navigator.clipboard.writeText(ta.value).then(function(){
-    toast('📋 Copied! Paste it into WhatsApp.');
-  }).catch(function(){
-    document.execCommand('copy');
-    toast('📋 Copied (fallback method)');
-  });
 }
 
 function renderWizTeams(){
@@ -4276,7 +4133,6 @@ function mergeTeams(){
 // TEAMS REGISTRY
 // ═══════════════════════════════════════════
 let registryTeams = []; // loaded from Firebase + localStorage cache
-let signupData = { session: null, entries: {} }; // public sign-up session + entries
 let editingRegId = null; // null = new, otherwise = editing existing
 
 function loadRegistry(){
@@ -4296,7 +4152,6 @@ function toggleRegistryForm(){
   document.getElementById('regFormTitle').textContent='➕ New Team';
   document.getElementById('regName').value='';
   document.getElementById('regCoach').value='';
-  if(document.getElementById('regWhatsapp')) document.getElementById('regWhatsapp').value='';
   if(fn)fn.value='';if(sb)sb.value='';
   if(preview)preview.style.display='none';
   if(res)res.style.display='none';
@@ -4808,7 +4663,6 @@ function editRegistryTeam(tid){
   document.getElementById('regFormTitle').textContent = '✏️ Edit Team';
   document.getElementById('regName').value = t.name || '';
   document.getElementById('regCoach').value = t.coach || '';
-  if(document.getElementById('regWhatsapp')) document.getElementById('regWhatsapp').value = t.whatsapp || '';
   const fn = document.getElementById('regLogoFilename');
   const searchBox = document.getElementById('regLogoSearch');
   const preview = document.getElementById('regLogoPreview');
@@ -4840,7 +4694,6 @@ function editRegistryTeam(tid){
 function saveRegistryTeam(){
   const name = document.getElementById('regName').value.trim();
   const coach = document.getElementById('regCoach').value.trim();
-  const whatsapp = document.getElementById('regWhatsapp') ? document.getElementById('regWhatsapp').value.trim() : '';
   const fnInput = document.getElementById('regLogoFilename');
   const logoFilename = fnInput ? fnInput.value.trim() : '';
   const badge = '⚽';
@@ -4856,7 +4709,7 @@ function saveRegistryTeam(){
     const t = registryTeams.find(x => x.id === editingRegId);
     if(t){
       const oldName = t.name;
-      t.name = name; t.coach = coach; t.badge = badge; t.whatsapp = whatsapp;
+      t.name = name; t.coach = coach; t.badge = badge;
       if(logoFilename) t.logoFilename = logoFilename; else delete t.logoFilename;
       // Keep old logoUrl if it exists (backward compat) but logoFilename takes priority
       let tourChanged = false;
@@ -4886,7 +4739,7 @@ function saveRegistryTeam(){
     if(registryTeams.some(t => t.name.toLowerCase() === name.toLowerCase())){
       toast('A team with that name already exists', true); return;
     }
-    const newTeam = { id:'reg_'+Date.now(), name, coach, badge, whatsapp, dateCreated:new Date().toISOString().slice(0,10) };
+    const newTeam = { id:'reg_'+Date.now(), name, coach, badge, dateCreated:new Date().toISOString().slice(0,10) };
     if(logoFilename) newTeam.logoFilename = logoFilename;
     registryTeams.push(newTeam);
   }
@@ -4949,157 +4802,6 @@ function renderRegistry(){
   }).join('');
 }
 
-// ═══════════════════════════════════════════
-// TEAM SIGN-UPS (public self-registration review)
-// ═══════════════════════════════════════════
-function normPhone(p){
-  return (p||'').replace(/[^0-9]/g,'');
-}
-function maskPhone(p){
-  var n=normPhone(p);
-  if(n.length<4) return '••••';
-  return '•••• '+n.slice(-4);
-}
-function openSignupSessionModal(){
-  document.getElementById('signupSessionTitleInput').value='';
-  document.getElementById('signupSessionOverlay').classList.add('open');
-}
-function closeSignupSessionModal(){
-  document.getElementById('signupSessionOverlay').classList.remove('open');
-}
-function saveSignupSession(){
-  var title=document.getElementById('signupSessionTitleInput').value.trim();
-  if(!title){toast('Give this sign-up round a title',true);return;}
-  signupData.session={active:true,title:title,createdAt:Date.now()};
-  signupData.entries={}; // fresh round — previous entries stay visible via admin history if you check Firebase directly, but the active list starts clean
-  if(window._fbSaveSignupSession){
-    window._fbSaveSignupSession(signupData.session).catch(()=>toast('Saved locally but failed to sync',true));
-  }
-  // Clear old entries in Firebase too, since this is a brand new round
-  if(window._fbLoadSignups){
-    window._fbLoadSignups().then(function(cloud){
-      if(cloud&&cloud.entries){
-        Object.keys(cloud.entries).forEach(function(eid){
-          if(window._fbDeleteSignupEntry) window._fbDeleteSignupEntry(eid);
-        });
-      }
-    });
-  }
-  closeSignupSessionModal();
-  renderSignupAdmin();
-  toast('📝 Sign-ups are open: "'+title+'"');
-}
-function closeSignupsSession(){
-  if(!signupData.session) return;
-  signupData.session.active=false;
-  if(window._fbSaveSignupSession) window._fbSaveSignupSession(signupData.session).catch(()=>{});
-  renderSignupAdmin();
-  toast('Sign-ups closed');
-}
-function approveSignupEntry(eid){
-  var e=signupData.entries[eid];
-  if(!e) return;
-  e.status='confirmed';
-  // Establish/correct the WhatsApp number of record for this team now that a human has verified it
-  if(e.registryTeamId){
-    var rt=registryTeams.find(function(r){return r.id===e.registryTeamId;});
-    if(rt){ rt.whatsapp=e.whatsapp; saveRegistry(); }
-  }
-  if(window._fbSaveSignupEntry) window._fbSaveSignupEntry(eid,e).catch(()=>{});
-  closeSignupReview();
-  renderSignupAdmin();
-  toast('✅ Approved');
-}
-function rejectSignupEntry(eid){
-  var e=signupData.entries[eid];
-  if(!e) return;
-  e.status='rejected';
-  if(window._fbSaveSignupEntry) window._fbSaveSignupEntry(eid,e).catch(()=>{});
-  closeSignupReview();
-  renderSignupAdmin();
-  toast('Entry rejected');
-}
-function removeSignupEntry(eid){
-  delete signupData.entries[eid];
-  if(window._fbDeleteSignupEntry) window._fbDeleteSignupEntry(eid).catch(()=>{});
-  renderSignupAdmin();
-  toast('Removed from list');
-}
-function openSignupReview(eid){
-  var e=signupData.entries[eid];
-  if(!e) return;
-  var rt=e.registryTeamId?registryTeams.find(function(r){return r.id===e.registryTeamId;}):null;
-  var h='<div style="margin-bottom:.8rem"><strong style="color:var(--gold)">'+e.teamName+'</strong></div>';
-  h+='<div style="background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:.7rem;margin-bottom:.6rem">'+
-    '<div style="font-size:.7rem;color:var(--muted);margin-bottom:.2rem">NEW SUBMISSION</div>'+
-    '<div style="font-size:.85rem">👤 '+e.coach+'</div>'+
-    '<div style="font-size:.85rem">📱 '+e.whatsapp+'</div>'+
-  '</div>';
-  if(rt){
-    h+='<div style="background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:.7rem;margin-bottom:.8rem">'+
-      '<div style="font-size:.7rem;color:var(--muted);margin-bottom:.2rem">ON FILE FOR THIS TEAM</div>'+
-      '<div style="font-size:.85rem">👤 '+(rt.coach||'—')+'</div>'+
-      '<div style="font-size:.85rem">📱 '+(rt.whatsapp||'No number on file yet')+'</div>'+
-    '</div>';
-  } else {
-    h+='<div class="info" style="margin-bottom:.8rem">This team name isn\'t in the registry — check it isn\'t a near-duplicate of an existing team before approving.</div>';
-  }
-  h+='<div style="display:flex;gap:.6rem">'+
-    '<button class="btn-full btn-gold" style="flex:1" onclick="approveSignupEntry(\''+eid+'\')">✅ Approve</button>'+
-    '<button class="btn-full btn-red" style="flex:1" onclick="rejectSignupEntry(\''+eid+'\')">❌ Reject</button>'+
-  '</div>';
-  document.getElementById('signupReviewBody').innerHTML=h;
-  document.getElementById('signupReviewOverlay').style.display='flex';
-}
-function closeSignupReview(){
-  document.getElementById('signupReviewOverlay').style.display='none';
-}
-function renderSignupAdmin(){
-  var el=document.getElementById('signupAdminBody');
-  if(!el) return;
-  var entries=Object.keys(signupData.entries||{}).map(function(k){return signupData.entries[k];});
-  var confirmed=entries.filter(function(e){return e.status==='confirmed';});
-  var review=entries.filter(function(e){return e.status==='review';});
-
-  var h='';
-  if(!signupData.session||!signupData.session.active){
-    h+='<button class="btn-full btn-gold" onclick="openSignupSessionModal()">🚀 OPEN NEW SIGN-UP ROUND</button>';
-    if(signupData.session&&!signupData.session.active){
-      h+='<div style="font-size:.75rem;color:var(--muted);margin-top:.5rem">Last round: "'+signupData.session.title+'" — closed</div>';
-    }
-  } else {
-    h+='<div style="display:flex;align-items:center;justify-content:space-between;background:var(--card2);border:1px solid rgba(46,196,120,.3);border-radius:8px;padding:.6rem .8rem;margin-bottom:1rem">'+
-      '<div><strong style="color:var(--green)">🟢 Open:</strong> '+signupData.session.title+'</div>'+
-      '<button class="btn-sm" style="border-color:var(--red);color:var(--red)" onclick="closeSignupsSession()">⏹ Close</button>'+
-    '</div>';
-  }
-
-  if(confirmed.length){
-    h+='<div style="font-size:.72rem;letter-spacing:1px;color:var(--green);margin:1rem 0 .5rem">✅ CONFIRMED ('+confirmed.length+')</div>';
-    confirmed.forEach(function(e){
-      h+='<div class="t-card" style="padding:.6rem .8rem">'+
-        '<div style="min-width:0"><div class="t-card-name" style="font-size:.9rem">'+e.teamName+'</div>'+
-        '<div class="t-card-meta">'+e.coach+' · '+maskPhone(e.whatsapp)+(e.registryTeamId?'':' · <span style="color:var(--gold)">new team</span>')+'</div></div>'+
-        '<button class="del-btn" onclick="removeSignupEntry(\''+e.id+'\')">🗑</button>'+
-      '</div>';
-    });
-  }
-  if(review.length){
-    h+='<div style="font-size:.72rem;letter-spacing:1px;color:#ffaa00;margin:1rem 0 .5rem">🔺 NEEDS REVIEW ('+review.length+')</div>';
-    review.forEach(function(e){
-      h+='<div class="t-card" style="padding:.6rem .8rem;cursor:pointer;border-color:rgba(255,170,0,.4)" onclick="openSignupReview(\''+e.id+'\')">'+
-        '<div style="min-width:0"><div class="t-card-name" style="font-size:.9rem">'+e.teamName+'</div>'+
-        '<div class="t-card-meta">'+e.coach+' · '+e.note+'</div></div>'+
-        '<span style="color:#ffaa00;font-size:1.1rem">›</span>'+
-      '</div>';
-    });
-  }
-  if(!confirmed.length&&!review.length&&signupData.session&&signupData.session.active){
-    h+='<div class="empty" style="padding:1.2rem">No sign-ups yet — share the site\'s Sign Up tab with your community.</div>';
-  }
-  el.innerHTML=h;
-}
-
 function openRegTeamDetail(tid){
   const t = registryTeams.find(x => x.id === tid);
   if(!t) return;
@@ -5113,7 +4815,7 @@ function openRegTeamDetail(tid){
     ${logoHtml}
     <div style="min-width:0">
       <div style="font-family:'Anton',sans-serif;font-size:1.15rem;color:var(--gold);letter-spacing:1px">${t.name}</div>
-      <div style="font-size:.75rem;color:var(--muted)">${t.coach ? '🧢 '+t.coach : 'No coach set'}${t.whatsapp?' · 📱 '+t.whatsapp:''}</div>
+      <div style="font-size:.75rem;color:var(--muted)">${t.coach ? '🧢 '+t.coach : 'No coach set'}</div>
     </div>
   </div>`;
 
@@ -5247,13 +4949,6 @@ function initFirebaseSync(){
       persistDb();
       if(typeof renderAwardsList==='function') renderAwardsList();
     }
-    return window._fbLoadSignups ? window._fbLoadSignups() : null;
-  }).then(function(cloudSignups){
-    if(cloudSignups){
-      signupData.session = cloudSignups.session || null;
-      signupData.entries = cloudSignups.entries || {};
-    }
-    if(typeof renderSignupAdmin==='function') renderSignupAdmin();
     if(typeof updateAiBadge==='function') updateAiBadge();
     setSyncStatus('idle');
   }).catch(function(){ setSyncStatus('error'); });
