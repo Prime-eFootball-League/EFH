@@ -1800,9 +1800,122 @@ function renderTeams(){
         <div style="font-weight:700">${t.name}</div>
         <div style="font-size:.72rem;color:var(--muted)">${t.coach||''}${t.group?' · Group '+t.group:''} · ${t.played}P ${t.points}pts</div>
       </div>
+      <button class="del-btn" style="background:none;border:1.5px solid var(--border);color:var(--gold);border-radius:6px;padding:.35rem .5rem;font-size:.9rem;cursor:pointer;margin-right:.3rem" title="Swap coach" onclick="openSwapCoach('${t.id}')">🔁</button>
       <button class="del-btn" onclick="deleteTeam('${t.id}')">✕</button>
     </div>`;
   }).join('');
+}
+
+// ═══════════════════════════════════════════
+// COACH SWAP (mid-tournament substitution)
+// ═══════════════════════════════════════════
+// A team is "eliminated" if the knockout bracket exists and this team either
+// lost its last bracket match, or never made it into the bracket at all.
+// Before a bracket has been generated (pure round-robin/league/swiss phase)
+// nobody is considered eliminated yet — everyone is still "active".
+function isTeamEliminated(tour, team){
+  if(!tour || !team) return false;
+  if(tour.bracketRounds && tour.bracketRounds.length){
+    const matches = flattenBracketMatches(tour);
+    const teamMatches = matches.filter(m => (m.t1 && m.t1.name===team.name) || (m.t2 && m.t2.name===team.name));
+    if(teamMatches.length){
+      const last = teamMatches[teamMatches.length-1];
+      return !!(last.done && last.winner && last.winner.name !== team.name);
+    }
+    return true; // bracket exists but this team was never seeded into it
+  }
+  return false;
+}
+
+// Coaches currently tied to a still-active (non-eliminated) team elsewhere in
+// this tournament — these names are blocked as swap-in candidates so nobody
+// ends up running two live teams at once.
+function getActiveCoachMap(tour, excludeTeamId){
+  const map = {};
+  (tour.teams||[]).forEach(t=>{
+    if(String(t.id)===String(excludeTeamId)) return;
+    if(!t.coach || !t.coach.trim()) return;
+    if(!isTeamEliminated(tour, t)) map[t.coach.trim().toLowerCase()] = t.name;
+  });
+  return map;
+}
+
+let _swapTeamId = null;
+function openSwapCoach(teamId){
+  const tour=getTour(); if(!tour) return;
+  const team=tour.teams.find(t=>t.id===teamId); if(!team) return;
+  _swapTeamId = teamId;
+  ensureSwapModal();
+  document.getElementById('swapModalTeamName').innerHTML =
+    `<strong>${team.name}</strong> — current coach: ${team.coach?('🧢 '+team.coach):'<em>none</em>'}`;
+
+  // Build the list of eligible substitutes: coaches already in this tournament
+  // whose own team has been eliminated (so they're free to take over).
+  const freeAgents = [];
+  (tour.teams||[]).forEach(t=>{
+    if(t.id===teamId) return;
+    if(!t.coach || !t.coach.trim()) return;
+    if(isTeamEliminated(tour, t)) freeAgents.push({name:t.coach.trim(), from:t.name});
+  });
+  const seen={};
+  const sel=document.getElementById('swapCandidateSelect');
+  sel.innerHTML = '<option value="">-- or pick an eliminated coach --</option>' +
+    freeAgents.filter(f=>{const k=f.name.toLowerCase();if(seen[k])return false;seen[k]=true;return true;})
+      .map(f=>`<option value="${f.name.replace(/"/g,'&quot;')}">${f.name} (was ${f.from} — eliminated)</option>`).join('');
+  document.getElementById('swapNewName').value='';
+  document.getElementById('swapModalWarning').style.display='none';
+  document.getElementById('swapModalWrap').style.display='flex';
+}
+function closeSwapModal(){
+  const w=document.getElementById('swapModalWrap');
+  if(w) w.style.display='none';
+  _swapTeamId=null;
+}
+function confirmSwapCoach(){
+  const tour=getTour(); if(!tour||!_swapTeamId) return;
+  const team=tour.teams.find(t=>t.id===_swapTeamId); if(!team) return;
+  const sel=document.getElementById('swapCandidateSelect').value.trim();
+  const typed=document.getElementById('swapNewName').value.trim();
+  const newCoach = typed || sel;
+  const warnEl=document.getElementById('swapModalWarning');
+  if(!newCoach){ warnEl.textContent='Enter or pick a replacement coach.'; warnEl.style.display='block'; return; }
+  if(team.coach && newCoach.toLowerCase()===team.coach.trim().toLowerCase()){
+    warnEl.textContent='That\'s already the current coach.'; warnEl.style.display='block'; return;
+  }
+  const activeMap = getActiveCoachMap(tour, _swapTeamId);
+  const clash = activeMap[newCoach.toLowerCase()];
+  if(clash){
+    warnEl.textContent = `${newCoach} is still active with "${clash}" in this tournament. They can only switch once that team is eliminated.`;
+    warnEl.style.display='block';
+    return;
+  }
+  const oldCoach = team.coach || '(none)';
+  if(!team.coachHistory) team.coachHistory=[];
+  team.coachHistory.push({from:oldCoach, to:newCoach, date:new Date().toISOString()});
+  team.coach = newCoach;
+  sdb(); renderTeams(); closeSwapModal();
+  toast(`🔁 ${team.name}: ${oldCoach} → ${newCoach}`);
+}
+function ensureSwapModal(){
+  if(document.getElementById('swapModalWrap')) return;
+  const div=document.createElement('div');
+  div.id='swapModalWrap';
+  div.style.cssText='display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:600;align-items:center;justify-content:center;backdrop-filter:blur(3px)';
+  div.setAttribute('onclick',"if(event.target===this)closeSwapModal()");
+  div.innerHTML = `<div style="background:#1a1f2e;border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:1.4rem 1.3rem;max-width:360px;width:92%;box-shadow:0 20px 60px rgba(0,0,0,.6)">
+    <div style="font-family:'Anton',sans-serif;font-size:1.05rem;letter-spacing:2px;margin-bottom:.5rem">🔁 SWAP COACH</div>
+    <div id="swapModalTeamName" style="font-size:.8rem;color:var(--muted);margin-bottom:1rem;line-height:1.4"></div>
+    <label style="font-size:.65rem;letter-spacing:1px;color:var(--muted);text-transform:uppercase">Pick an eliminated coach</label>
+    <select id="swapCandidateSelect" style="width:100%;margin:.4rem 0 .9rem;padding:.6rem;border-radius:8px;background:var(--card2);color:var(--text);border:1px solid var(--border);font-size:.85rem"></select>
+    <label style="font-size:.65rem;letter-spacing:1px;color:var(--muted);text-transform:uppercase">Or type a new name</label>
+    <input id="swapNewName" type="text" placeholder="Replacement coach name" style="width:100%;margin:.4rem 0 .8rem;padding:.6rem;border-radius:8px;background:var(--card2);color:var(--text);border:1px solid var(--border);font-size:.85rem;box-sizing:border-box">
+    <div id="swapModalWarning" style="font-size:.72rem;color:var(--red);margin-bottom:.8rem;display:none;line-height:1.4"></div>
+    <div style="display:flex;gap:.7rem">
+      <button class="modal-btn modal-btn-cancel" onclick="closeSwapModal()">CANCEL</button>
+      <button class="modal-btn modal-btn-confirm" onclick="confirmSwapCoach()">SWAP</button>
+    </div>
+  </div>`;
+  document.body.appendChild(div);
 }
 
 // ═══════════════════════════════════════════
